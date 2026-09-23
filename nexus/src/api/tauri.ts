@@ -92,6 +92,7 @@ export const api = {
       call<FlowView>("flow.updateNode", { dir, id, ...patch }),
   },
   templates: () => call<TemplateSummary[]>("template.list"),
+  nodeKinds: () => call<{ id: string; label: string; description: string; cacheable: boolean }[]>("node.kinds"),
   exec: {
     run: (dir: string, node?: string, use_cache = true) => call<RunResult>("exec.run", { dir, node, use_cache }),
     last: (dir: string) => call<RunResult | null>("exec.last", { dir }),
@@ -106,7 +107,9 @@ export const api = {
     set: (c: Config) => call<Config>("config.set", c),
   },
   view: {
-    flowTable: (dir: string) => call<FlowTable>("view.flowTable", { dir }),
+    list: () => call<{ id: string; label: string; target: string; layouts: string[] }[]>("view.list"),
+    query: <T,>(id: string, params: object) => call<T>("view.query", { id, params }),
+    flowTable: (dir: string) => call<FlowTable>("view.query", { id: "flow.table", params: { dir } }),
   },
   index: {
     status: () => call<IndexStatus>("index.status"),

@@ -2,7 +2,8 @@ import { create } from "zustand";
 import { api, type EdgeCheck, type FlowView, type NodeView, type RunProgress, type RunResult, type RunStatus, type TemplateSummary } from "../api/tauri";
 import { compatible, splitRef } from "../views/FlowEditor/ports";
 
-export type FlowViewMode = "canvas" | "table" | "hybrid";
+/** Id of a view registered in src/views/registry.tsx. */
+export type FlowViewMode = string;
 
 /** World-space centre of the visible canvas; kept current by <Canvas> without re-rendering. */
 export const canvasCenter = { x: 400, y: 240 };
@@ -11,6 +12,8 @@ interface FlowState {
   dir: string | null;
   flow: FlowView | null;
   templates: TemplateSummary[];
+  /** Node kinds with a registered executor (backend NodeRegistry). */
+  kinds: string[];
   loading: boolean;
   error: string | null;
   mode: FlowViewMode;
@@ -41,8 +44,7 @@ interface FlowState {
 
 function loadMode(): FlowViewMode {
   try {
-    const m = localStorage.getItem("nexus.flowMode");
-    return m === "table" || m === "hybrid" ? m : "canvas";
+    return localStorage.getItem("nexus.flowMode") || "canvas";
   } catch {
     return "canvas";
   }
@@ -52,6 +54,7 @@ export const useFlowStore = create<FlowState>((set, get) => ({
   dir: null,
   flow: null,
   templates: [],
+  kinds: [],
   loading: false,
   error: null,
   mode: loadMode(),
@@ -66,7 +69,13 @@ export const useFlowStore = create<FlowState>((set, get) => ({
     const same = get().dir === dir;
     set({ dir, loading: true, flow: same ? get().flow : null, selectedNode: null, selectedEdge: null, error: null, ...(same ? {} : { runStatus: {}, lastRun: null }) });
     try {
-      const [flow, templates, lastRun] = await Promise.all([api.flow.load(dir), api.templates(), api.exec.last(dir)]);
+      const [flow, templates, lastRun, kinds] = await Promise.all([
+        api.flow.load(dir),
+        api.templates(),
+        api.exec.last(dir),
+        get().kinds.length ? Promise.resolve(null) : api.nodeKinds().then((k) => k.map((x) => x.id)),
+      ]);
+      if (kinds) set({ kinds });
       if (get().dir === dir) {
         const runStatus = Object.fromEntries((lastRun?.nodes ?? []).map((n) => [n.node, { status: n.status, ms: n.ms, error: n.error }]));
         set({ flow, templates, lastRun, runStatus });

@@ -18,6 +18,13 @@ use std::time::Instant;
 
 pub type Outputs = Map<String, Value>;
 
+/// Outputs with a single port.
+pub fn single(port: String, v: Value) -> Outputs {
+    let mut m = Map::new();
+    m.insert(port, v);
+    m
+}
+
 /// What an executor gets for one node invocation.
 pub struct NodeCtx<'a> {
     pub vault: &'a Vault,
@@ -295,23 +302,18 @@ impl Engine {
     }
 }
 
-/// Readers of live vault state must re-run; everything else (LLM calls,
-/// side-effecting writes) reuses its last output while inputs are unchanged.
-fn cacheable(kind: &str) -> bool {
-    !matches!(kind, "fetch" | "query_graph")
+/// Dispatch on the template's `kind` through the node registry.
+fn execute(ctx: &NodeCtx) -> Result<Outputs> {
+    let kind = ctx.template.meta.kind.as_str();
+    if kind.is_empty() {
+        return Err(NexusError::invalid(format!("template {} has no `kind`", ctx.template.path)));
+    }
+    let k = crate::registry::get().nodes.get(kind).ok_or_else(|| NexusError::invalid(format!("unknown node kind `{kind}`")))?;
+    (k.run)(ctx)
 }
 
-/// Dispatch on the template's `kind`.
-fn execute(ctx: &NodeCtx) -> Result<Outputs> {
-    match ctx.template.meta.kind.as_str() {
-        "fetch" => super::nodes::fetch(ctx),
-        "agent" => super::nodes::agent(ctx),
-        "write_note" => super::nodes::write_note(ctx),
-        "git_commit" => super::nodes::git_commit(ctx),
-        "query_graph" => super::nodes::query_graph(ctx),
-        "" => Err(NexusError::invalid(format!("template {} has no `kind`", ctx.template.path))),
-        k => Err(NexusError::invalid(format!("unknown node kind `{k}`"))),
-    }
+fn cacheable(kind: &str) -> bool {
+    crate::registry::get().nodes.get(kind).is_some_and(|k| k.cacheable)
 }
 
 fn clip(s: &str, n: usize) -> String {

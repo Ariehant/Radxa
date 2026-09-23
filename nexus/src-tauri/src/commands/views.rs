@@ -1,17 +1,21 @@
-use crate::index::{query, sql};
+use crate::error::NexusError;
 use crate::rpc::Router;
 use serde::Deserialize;
+use serde_json::Value;
 
 #[derive(Deserialize)]
-struct DirParams {
-    dir: String,
+struct QueryParams {
+    id: String,
+    #[serde(default)]
+    params: Value,
 }
 
 pub fn register(r: &mut Router) {
-    // Views never store data: they query the index and render.
-    r.add("view.flowTable", |s, p: DirParams| {
+    // Views never store data: they are registered queries over the index.
+    r.add("view.list", |_s, _p: Value| Ok(crate::registry::get().views.list().into_iter().cloned().collect::<Vec<_>>()));
+    r.add("view.query", |s, p: QueryParams| {
         let v = s.vault()?;
-        let c = v.index.read()?;
-        query::flow_table(&c, &format!("{}/flow.md", crate::flow::flow_dir(&p.dir))).map_err(sql)
+        let def = crate::registry::get().views.get(&p.id).ok_or_else(|| NexusError::NotFound(format!("view {}", p.id)))?;
+        (def.query)(&v, &p.params)
     });
 }

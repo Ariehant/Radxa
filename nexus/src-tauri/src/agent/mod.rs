@@ -29,13 +29,9 @@ pub struct AgentOutcome {
 
 const TOOL_RESULT_LOG_CHARS: usize = 600;
 
-/// Build the configured provider.
+/// Build the configured provider via the provider registry.
 pub fn provider_for(cfg: &crate::config::LlmConfig) -> Result<Box<dyn LlmProvider>> {
-    match cfg.provider.as_str() {
-        "ollama" => Ok(ollama::factory(cfg)),
-        "echo" => Ok(provider::echo_factory(cfg)),
-        other => Err(crate::error::NexusError::invalid(format!("unknown LLM provider `{other}`"))),
-    }
+    crate::registry::get().providers.create(cfg)
 }
 
 pub fn run(

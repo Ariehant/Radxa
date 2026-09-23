@@ -7,6 +7,7 @@ pub mod fs;
 pub mod git;
 pub mod ids;
 pub mod index;
+pub mod registry;
 pub mod rpc;
 pub mod scaffold;
 pub mod state;

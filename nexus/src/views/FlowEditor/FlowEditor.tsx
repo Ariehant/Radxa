@@ -3,21 +3,14 @@ import type { NodeView } from "../../api/tauri";
 import { useStore } from "../../state/store";
 import { canvasCenter, useFlowStore } from "../../state/flowStore";
 import { Skeleton } from "../../components/Skeleton";
-import { Canvas } from "./Canvas";
 import { Inspector } from "./Inspector";
 import { TYPE_COLOR } from "./ports";
-import { TableView } from "../TableView/TableView";
-import { HybridView } from "../HybridView/HybridView";
-import type { FlowViewMode } from "../../state/flowStore";
-
-const MODES: { id: FlowViewMode; label: string }[] = [
-  { id: "canvas", label: "Canvas" },
-  { id: "table", label: "Table" },
-  { id: "hybrid", label: "Hybrid" },
-];
+import { getFlowView, listFlowViews } from "../registry";
+import "../builtinViews";
 
 function Palette() {
   const templates = useFlowStore((s) => s.templates);
+  const kinds = useFlowStore((s) => s.kinds);
   const addNode = useFlowStore((s) => s.addNode);
   // Drop new nodes at the centre of the visible canvas, nudged so repeated
   // adds don't stack exactly on top of each other.
@@ -33,13 +26,16 @@ function Palette() {
         <button
           key={t.ref}
           className="palette-item"
-          title={t.description ?? t.ref}
+          title={kinds.length && !kinds.includes(t.kind) ? `No executor registered for kind "${t.kind}"` : (t.description ?? t.ref)}
           onClick={() => {
             const p = place();
             void addNode(t.ref, p.x, p.y);
           }}
         >
-          <span className="palette-title">{t.title}</span>
+          <span className="palette-title">
+            {t.title}
+            {kinds.length > 0 && !kinds.includes(t.kind) && <span className="bad"> ⚠</span>}
+          </span>
           <span className="palette-ports">
             {t.inputs.map((p) => (
               <i key={"i" + p.name} style={{ background: TYPE_COLOR[p.type] }} title={`in ${p.name}: ${p.type}`} />
@@ -91,8 +87,10 @@ function RunBadge({ node }: { node: NodeView }) {
   );
 }
 
-const renderActions = (n: NodeView) => <RunButton node={n} />;
-const renderStatus = (n: NodeView) => <RunBadge node={n} />;
+const viewCtx = {
+  renderActions: (n: NodeView) => <RunButton node={n} />,
+  renderStatus: (n: NodeView) => <RunBadge node={n} />,
+};
 
 export function FlowEditor({ dir }: { dir: string }) {
   const flow = useFlowStore((s) => s.flow);
@@ -112,6 +110,7 @@ export function FlowEditor({ dir }: { dir: string }) {
   if (!flow || flow.dir !== dir) return loading ? <Skeleton lines={10} /> : <div className="empty">Could not load flow.</div>;
 
   const invalid = flow.edges.filter((e) => !e.valid).length;
+  const view = getFlowView(mode) ?? listFlowViews()[0];
 
   return (
     <div className="flow-editor">
@@ -132,19 +131,17 @@ export function FlowEditor({ dir }: { dir: string }) {
           {running ? "Running…" : "▶ Run flow"}
         </button>
         <div className="segmented">
-          {MODES.map((m) => (
-            <button key={m.id} className={mode === m.id ? "active" : ""} onClick={() => setMode(m.id)}>
+          {listFlowViews().map((m) => (
+            <button key={m.id} className={view.id === m.id ? "active" : ""} onClick={() => setMode(m.id)}>
               {m.label}
             </button>
           ))}
         </div>
       </div>
       <div className="flow-body">
-        {mode !== "table" && <Palette />}
-        {mode === "canvas" && <Canvas renderActions={renderActions} renderStatus={renderStatus} />}
-        {mode === "table" && <TableView />}
-        {mode === "hybrid" && <HybridView left={<Canvas renderActions={renderActions} renderStatus={renderStatus} />} right={<TableView />} />}
-        {mode !== "hybrid" && <Inspector />}
+        {view.palette && <Palette />}
+        {view.render(viewCtx)}
+        {view.inspector && <Inspector />}
       </div>
     </div>
   );
