@@ -136,3 +136,27 @@ export interface Position {
   w?: number;
   h?: number;
 }
+
+export interface FlowNodeRow {
+  id: string;
+  title: string | null;
+  ref: string;
+  template_title: string | null;
+  kind: string | null;
+  config: Record<string, unknown> | null;
+  x: number | null;
+  y: number | null;
+  inputs: number;
+  outputs: number;
+}
+
+export interface FlowEdgeRow {
+  from: string;
+  to: string;
+  data_type: string | null;
+}
+
+export interface FlowTable {
+  nodes: FlowNodeRow[];
+  edges: FlowEdgeRow[];
+}

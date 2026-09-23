@@ -786,3 +786,120 @@ button.danger {
   gap: 3px;
   font-size: 12px;
 }
+
+/* ---------- table + hybrid ---------- */
+.table-view {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  padding: 8px 16px 24px;
+}
+.table-section {
+  margin-bottom: 16px;
+}
+.grid-body {
+  border: 1px solid var(--border);
+  border-top: 0;
+  border-radius: 0 0 var(--radius) var(--radius);
+}
+.grid-row {
+  display: grid;
+  align-items: center;
+  gap: 10px;
+  height: 100%;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  white-space: nowrap;
+  font-size: 12px;
+  min-width: 0;
+}
+.grid-row > * {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.grid-row:hover {
+  background: var(--bg-2);
+}
+.grid-row.selected {
+  background: var(--accent-bg);
+}
+.grid-head {
+  height: 28px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius) var(--radius) 0 0;
+  color: var(--fg-3);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: default;
+}
+.nodes-grid {
+  grid-template-columns: 50px minmax(120px, 1.4fr) 90px minmax(100px, 1fr) 90px 90px minmax(120px, 1.4fr);
+}
+.edges-grid {
+  grid-template-columns: minmax(100px, 1fr) minmax(100px, 1fr) 110px minmax(120px, 1.5fr) 32px;
+}
+.cell-input {
+  padding: 2px 6px;
+  border-color: transparent;
+  background: transparent;
+  font-size: 12px;
+}
+.cell-input:hover,
+.cell-input:focus {
+  border-color: var(--border);
+  background: var(--bg);
+}
+.kind-badge {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--fg-2);
+}
+.type-chip {
+  font-family: var(--mono);
+  font-size: 11px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1px 8px;
+  justify-self: start;
+}
+.muted {
+  color: var(--fg-3);
+}
+.mono {
+  font-family: var(--mono);
+}
+.ok {
+  color: var(--ok);
+}
+.bad {
+  color: var(--danger);
+}
+.order {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--fg-2);
+  padding: 4px 2px;
+}
+.hybrid {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+}
+.hybrid-pane {
+  min-width: 0;
+  display: flex;
+}
+.hybrid-divider {
+  width: 5px;
+  cursor: col-resize;
+  background: var(--border);
+  flex: none;
+}
+.hybrid-divider:hover {
+  background: var(--accent);
+}

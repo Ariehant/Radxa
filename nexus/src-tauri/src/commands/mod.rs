@@ -4,6 +4,7 @@
 pub mod flows;
 pub mod notes;
 pub mod vault;
+pub mod views;
 
 use crate::rpc::{Request, Response, Router};
 use crate::state::AppState;
@@ -16,6 +17,7 @@ pub fn router() -> &'static Router {
         vault::register(&mut r);
         notes::register(&mut r);
         flows::register(&mut r);
+        views::register(&mut r);
         r.add("rpc.methods", |_s, _p: serde_json::Value| Ok(router_methods()));
         r
     })

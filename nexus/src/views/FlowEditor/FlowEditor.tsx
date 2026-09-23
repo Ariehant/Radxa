@@ -4,6 +4,15 @@ import { Skeleton } from "../../components/Skeleton";
 import { Canvas } from "./Canvas";
 import { Inspector } from "./Inspector";
 import { TYPE_COLOR } from "./ports";
+import { TableView } from "../TableView/TableView";
+import { HybridView } from "../HybridView/HybridView";
+import type { FlowViewMode } from "../../state/flowStore";
+
+const MODES: { id: FlowViewMode; label: string }[] = [
+  { id: "canvas", label: "Canvas" },
+  { id: "table", label: "Table" },
+  { id: "hybrid", label: "Hybrid" },
+];
 
 function Palette() {
   const templates = useFlowStore((s) => s.templates);
@@ -48,6 +57,8 @@ export function FlowEditor({ dir }: { dir: string }) {
   const flow = useFlowStore((s) => s.flow);
   const loading = useFlowStore((s) => s.loading);
   const open = useFlowStore((s) => s.open);
+  const mode = useFlowStore((s) => s.mode);
+  const setMode = useFlowStore((s) => s.setMode);
 
   useEffect(() => {
     void open(dir);
@@ -67,11 +78,20 @@ export function FlowEditor({ dir }: { dir: string }) {
             ⚠ {flow.errors.length + invalid} issue{flow.errors.length + invalid === 1 ? "" : "s"}
           </span>
         )}
+        <div className="segmented">
+          {MODES.map((m) => (
+            <button key={m.id} className={mode === m.id ? "active" : ""} onClick={() => setMode(m.id)}>
+              {m.label}
+            </button>
+          ))}
+        </div>
       </div>
       <div className="flow-body">
-        <Palette />
-        <Canvas />
-        <Inspector />
+        {mode !== "table" && <Palette />}
+        {mode === "canvas" && <Canvas />}
+        {mode === "table" && <TableView />}
+        {mode === "hybrid" && <HybridView left={<Canvas />} right={<TableView />} />}
+        {mode !== "hybrid" && <Inspector />}
       </div>
     </div>
   );

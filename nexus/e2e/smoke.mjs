@@ -183,6 +183,23 @@ try {
   await page.locator(".node-card[data-node='n4']").waitFor();
   check((await page.locator(".node-card").count()) === 4 && (await page.locator(".edge-line").count()) === 2, "flow reopened with nodes + edges preserved");
 
+  // --- M5: table + hybrid views over the same state, no reload
+  let loads = 0;
+  page.on("request", (r) => r.method() === "POST" && r.postData()?.includes('"flow.load"') && loads++);
+  await page.getByRole("button", { name: "Table" }).click();
+  await page.locator(".nodes-grid:not(.grid-head)").first().waitFor();
+  check((await page.locator(".nodes-grid:not(.grid-head)").count()) === 4, "table view lists 4 node rows (from SQLite)");
+  check((await page.locator(".edges-grid:not(.grid-head)").count()) === 2, "table view lists 2 edge rows");
+  await page.screenshot({ path: join(shots, "06-table.png") });
+  await page.getByRole("button", { name: "Hybrid" }).click();
+  await page.locator(".hybrid .node-card").first().waitFor();
+  await page.locator(".nodes-grid:not(.grid-head)", { hasText: "n2" }).click();
+  check(await page.locator(".node-card[data-node='n2']").evaluate((el) => el.classList.contains("selected")), "selecting a table row selects the canvas node (shared state)");
+  await page.screenshot({ path: join(shots, "07-hybrid.png") });
+  await page.getByRole("button", { name: "Canvas" }).click();
+  await page.locator(".node-card").first().waitFor();
+  check(loads === 0, `switching views did not reload the flow (${loads} flow.load calls)`);
+
   if (process.env.NEXUS_E2E_EXTRA) {
     const extra = await import(process.env.NEXUS_E2E_EXTRA);
     await extra.default({ page, vault, check, until, sleep, shots });

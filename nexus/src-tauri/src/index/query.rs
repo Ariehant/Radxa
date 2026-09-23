@@ -197,6 +197,95 @@ pub fn stats(c: &Connection) -> rusqlite::Result<Stats> {
     )
 }
 
+#[derive(Debug, Serialize)]
+pub struct FlowNodeRow {
+    pub id: String,
+    pub title: Option<String>,
+    #[serde(rename = "ref")]
+    pub template: String,
+    pub template_title: Option<String>,
+    pub kind: Option<String>,
+    pub config: Value,
+    pub x: Option<f64>,
+    pub y: Option<f64>,
+    pub inputs: i64,
+    pub outputs: i64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct FlowEdgeRow {
+    pub from: String,
+    pub to: String,
+    pub data_type: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct FlowTable {
+    pub nodes: Vec<FlowNodeRow>,
+    pub edges: Vec<FlowEdgeRow>,
+}
+
+/// Table view of a flow, straight from the index (nodes + typed edges +
+/// canvas positions + template metadata) — the canvas and the table read
+/// the same derived data.
+pub fn flow_table(c: &Connection, flow_md: &str) -> rusqlite::Result<FlowTable> {
+    let Some(flow_id) = c
+        .query_row(
+            "SELECT n.id FROM files f JOIN nodes n ON n.file_id = f.id WHERE f.path = ?1 AND n.kind = 'flow'",
+            params![flow_md],
+            |r| r.get::<_, String>(0),
+        )
+        .optional()?
+    else {
+        return Ok(FlowTable { nodes: vec![], edges: vec![] });
+    };
+    let lo = format!("{flow_id}/");
+    let hi = format!("{flow_id}0");
+    let mut stmt = c.prepare_cached(
+        "SELECT json_extract(n.data, '$.node_id'), json_extract(n.data, '$.title'), json_extract(n.data, '$.ref'),
+                json_extract(t.data, '$.title'), json_extract(t.data, '$.frontmatter.kind'),
+                COALESCE(json_extract(n.data, '$.config'), '{}'), cl.x, cl.y,
+                (SELECT count(*) FROM edges e WHERE e.kind = 'flow' AND e.to_id = n.id),
+                (SELECT count(*) FROM edges e WHERE e.kind = 'flow' AND e.from_id = n.id)
+         FROM nodes n
+         LEFT JOIN files tf ON tf.path = json_extract(n.data, '$.ref')
+         LEFT JOIN nodes t ON t.file_id = tf.id AND t.kind = 'node-template'
+         LEFT JOIN canvas_layout cl ON cl.flow_id = json_extract(n.data, '$.canvas_id') AND cl.node_id = json_extract(n.data, '$.node_id')
+         WHERE n.id >= ?1 AND n.id < ?2 AND n.kind = 'flow-node'
+         ORDER BY n.rowid",
+    )?;
+    let nodes = stmt
+        .query_map(params![lo, hi], |r| {
+            let cfg: String = r.get(5)?;
+            Ok(FlowNodeRow {
+                id: r.get(0)?,
+                title: r.get(1)?,
+                template: r.get(2)?,
+                template_title: r.get(3)?,
+                kind: r.get(4)?,
+                config: serde_json::from_str(&cfg).unwrap_or(Value::Null),
+                x: r.get(6)?,
+                y: r.get(7)?,
+                inputs: r.get(8)?,
+                outputs: r.get(9)?,
+            })
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    let mut stmt = c.prepare_cached(
+        "SELECT substr(from_id, ?3), substr(to_id, ?3), port, data_type FROM edges
+         WHERE kind = 'flow' AND from_id >= ?1 AND from_id < ?2 ORDER BY rowid",
+    )?;
+    let skip = lo.chars().count() as i64 + 1;
+    let edges = stmt
+        .query_map(params![lo, hi, skip], |r| {
+            let (from, to, port): (String, String, String) = (r.get(0)?, r.get(1)?, r.get(2)?);
+            let (fp, tp) = port.split_once('>').unwrap_or((&port, ""));
+            Ok(FlowEdgeRow { from: format!("{from}.{fp}"), to: format!("{to}.{tp}"), data_type: r.get(3)? })
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(FlowTable { nodes, edges })
+}
+
 #[cfg(test)]
 mod tests {
     use super::fts_query;

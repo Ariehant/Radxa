@@ -96,3 +96,21 @@ fn flows_are_indexed_as_queryable_nodes_and_edges() {
     let bl = crate::index::query::backlinks(&c, LLM).unwrap();
     assert_eq!(bl[0].path, "flows/deploy-pipeline/flow.md");
 }
+
+#[test]
+fn flow_table_reads_the_index() {
+    let (_d, v) = vault();
+    let dir = "flows/deploy-pipeline";
+    v.index.flush().unwrap();
+    save_layout(&v, dir, &[Position { id: "n3".into(), x: 900.0, y: 333.0, w: None, h: None }]).unwrap();
+    let c = v.index.read().unwrap();
+    let t = crate::index::query::flow_table(&c, "flows/deploy-pipeline/flow.md").unwrap();
+    assert_eq!(t.nodes.iter().map(|n| n.id.as_str()).collect::<Vec<_>>(), vec!["n1", "n2", "n3"]);
+    assert_eq!(t.nodes[1].kind.as_deref(), Some("agent"));
+    assert_eq!(t.nodes[1].template_title.as_deref(), Some("LLM Summarize"));
+    assert_eq!((t.nodes[1].inputs, t.nodes[1].outputs), (1, 1));
+    assert_eq!(t.nodes[2].y, Some(333.0), "positions come from canvas_layout");
+    assert_eq!(t.edges[0].from, "n1.out");
+    assert_eq!(t.edges[0].to, "n2.in");
+    assert_eq!(t.edges[0].data_type.as_deref(), Some("document[]"));
+}

@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
   FlowSummary,
+  FlowTable,
   FlowView,
   IndexStatus,
   LinkRef,
@@ -89,6 +90,9 @@ export const api = {
       call<FlowView>("flow.updateNode", { dir, id, ...patch }),
   },
   templates: () => call<TemplateSummary[]>("template.list"),
+  view: {
+    flowTable: (dir: string) => call<FlowTable>("view.flowTable", { dir }),
+  },
   index: {
     status: () => call<IndexStatus>("index.status"),
     rebuild: () => call<null>("index.rebuild"),
