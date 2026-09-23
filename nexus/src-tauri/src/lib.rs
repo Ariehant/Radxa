@@ -1,4 +1,6 @@
+pub mod agent;
 pub mod commands;
+pub mod config;
 pub mod error;
 pub mod flow;
 pub mod fs;

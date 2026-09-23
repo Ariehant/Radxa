@@ -2,6 +2,7 @@
 
 use crate::error::{NexusError, Result};
 use crate::fs as vfs;
+use crate::config::Config;
 use crate::git::GitSync;
 use crate::index::Index;
 use crate::state::EventSink;
@@ -45,6 +46,8 @@ pub struct Vault {
     pub events: Arc<dyn EventSink>,
     pub index: Index,
     pub git: Option<GitSync>,
+    pub engine: crate::flow::engine::Engine,
+    config: parking_lot::RwLock<Config>,
 }
 
 pub fn content_hash(s: &str) -> String {
@@ -81,9 +84,10 @@ impl Vault {
         }
         let root = dunce(root.canonicalize()?);
         std::fs::create_dir_all(root.join(".nexus"))?;
+        let config = Config::load(&root);
         let index = Index::open(&root, events.clone(), kind_indexers(), true)?;
-        let git = GitSync::open(&root);
-        Ok(Arc::new(Vault { root, events, index, git }))
+        let git = if config.git.auto_commit { GitSync::open(&root) } else { None };
+        Ok(Arc::new(Vault { root, events, index, git, engine: Default::default(), config: parking_lot::RwLock::new(config) }))
     }
 
     /// Create the standard layout (idempotent) and open it. Optionally
@@ -113,6 +117,16 @@ impl Vault {
             root: self.root.to_string_lossy().replace('\\', "/"),
             name: self.root.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(),
         }
+    }
+
+    pub fn config(&self) -> Config {
+        self.config.read().clone()
+    }
+
+    pub fn set_config(&self, c: Config) -> Result<()> {
+        c.save(&self.root)?;
+        *self.config.write() = c;
+        Ok(())
     }
 
     pub fn abs(&self, rel: &str) -> Result<PathBuf> {

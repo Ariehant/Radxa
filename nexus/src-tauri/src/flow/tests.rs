@@ -114,3 +114,80 @@ fn flow_table_reads_the_index() {
     assert_eq!(t.edges[0].to, "n2.in");
     assert_eq!(t.edges[0].data_type.as_deref(), Some("document[]"));
 }
+
+// ---------- execution ----------
+
+fn echo_vault() -> (tempfile::TempDir, Arc<Vault>) {
+    let (d, v) = vault();
+    let mut c = v.config();
+    c.llm.provider = "echo".into();
+    v.set_config(c).unwrap();
+    v.index.flush().unwrap();
+    (d, v)
+}
+
+#[test]
+fn run_flow_generates_knowledge_and_a_run_log() {
+    let (_d, v) = echo_vault();
+    let r = v.engine.run(&v, "flows/deploy-pipeline", None, true).unwrap();
+    assert!(r.ok, "{:?}", r.nodes);
+    assert_eq!(r.nodes.iter().map(|n| n.status.as_str()).collect::<Vec<_>>(), vec!["ok", "ok", "ok"]);
+    let summary = r.nodes[1].outputs["out"].as_str().unwrap();
+    assert!(summary.starts_with("[echo:llama3.2]"), "{summary}");
+    assert!(summary.contains("Release Notes"), "documents rendered into the prompt");
+
+    // The write_note node created a real note…
+    assert_eq!(r.created, vec!["notes/generated/release-summary.md"]);
+    let note = v.read_text("notes/generated/release-summary.md").unwrap();
+    assert!(note.contains("generated_by: '[[flows/deploy-pipeline/flow]]'") || note.contains("generated_by: \"[[flows/deploy-pipeline/flow]]\""), "{note}");
+    // …and the run log is indexed knowledge linking flow and outputs.
+    assert!(r.log_path.starts_with("runs/deploy-pipeline/"));
+    let log = v.read_text(&r.log_path).unwrap();
+    assert!(log.contains("| LLM Summarize (n2) | agent | ok |"), "{log}");
+    assert!(log.contains("[[notes/generated/release-summary]]"));
+    let c = v.index.read().unwrap();
+    let bl = crate::index::query::backlinks(&c, "flows/deploy-pipeline/flow.md").unwrap();
+    assert!(bl.iter().any(|b| b.path == r.log_path), "run log links back to the flow");
+    assert!(bl.iter().any(|b| b.path == "notes/generated/release-summary.md"), "generated note links back to the flow");
+}
+
+#[test]
+fn run_node_runs_upstream_and_reuses_cache() {
+    let (_d, v) = echo_vault();
+    let first = v.engine.run(&v, "flows/deploy-pipeline", Some("n2"), true).unwrap();
+    assert_eq!(first.nodes.iter().map(|n| n.node.as_str()).collect::<Vec<_>>(), vec!["n1", "n2"], "only upstream of n2");
+    let r = v.engine.run(&v, "flows/deploy-pipeline", Some("n3"), true).unwrap();
+    assert_eq!(r.nodes.iter().map(|n| n.status.as_str()).collect::<Vec<_>>(), vec!["ok", "cached", "ok"], "fetch re-reads, LLM cached, target runs");
+    // Changing the agent's config invalidates its cache entry.
+    update_node(&v, "flows/deploy-pipeline", "n2", Some(serde_json::json!({ "model": "other" })), None).unwrap();
+    let r = v.engine.run(&v, "flows/deploy-pipeline", Some("n3"), true).unwrap();
+    assert_eq!(r.nodes[1].status.as_str(), "ok");
+    assert!(r.nodes[1].outputs["out"].as_str().unwrap().starts_with("[echo:other]"));
+    assert_eq!(v.engine.last_run("flows/deploy-pipeline").unwrap().run_id, r.run_id);
+}
+
+#[test]
+fn failures_stop_downstream_and_are_logged() {
+    let (_d, v) = vault();
+    let mut c = v.config();
+    c.llm.provider = "nope".into();
+    v.set_config(c).unwrap();
+    let r = v.engine.run(&v, "flows/deploy-pipeline", None, false).unwrap();
+    assert!(!r.ok);
+    assert_eq!(r.nodes.iter().map(|n| n.status.as_str()).collect::<Vec<_>>(), vec!["ok", "error", "skipped"]);
+    assert!(r.nodes[1].error.as_deref().unwrap().contains("unknown LLM provider"));
+    assert!(v.read_text(&r.log_path).unwrap().contains("**Error:**"));
+}
+
+#[test]
+fn invalid_subgraph_refuses_to_run() {
+    let (_d, v) = echo_vault();
+    let dir = "flows/deploy-pipeline";
+    let mut l = load(&v, dir).unwrap();
+    l.flow.meta.edges.push(model::FlowEdgeDef { from: "n1.out".into(), to: "n3.content".into(), data_type: None });
+    v.write_text("flows/deploy-pipeline/flow.md", &l.flow.to_markdown().unwrap(), None).unwrap();
+    let e = v.engine.run(&v, dir, Some("n3"), true).unwrap_err().to_string();
+    assert!(e.contains("n1.out → n3.content"), "{e}");
+    // n2 alone is unaffected by the broken n3 edge.
+    assert!(v.engine.run(&v, dir, Some("n2"), true).unwrap().ok);
+}

@@ -200,6 +200,32 @@ try {
   await page.locator(".node-card").first().waitFor();
   check(loads === 0, `switching views did not reload the flow (${loads} flow.load calls)`);
 
+  // --- M6: execution (offline `echo` provider so no model is needed)
+  await page.evaluate(async () => {
+    const rpc = (method, params) => window.__TAURI_INTERNALS__.invoke("rpc", { request: { jsonrpc: "2.0", id: 9, method, params } });
+    const cfg = (await rpc("config.get", {})).result;
+    cfg.llm.provider = "echo";
+    await rpc("config.set", cfg);
+  });
+  await page.locator(".node-card[data-node='n2'] .run-btn").click();
+  await until(async () => (await page.locator(".node-card[data-node='n2'] .status-ok").count()) === 1, "n2 ran");
+  check((await page.locator(".node-card[data-node='n1'] .status-ok").count()) === 1, "running n2 ran its upstream n1 first");
+  check((await page.locator(".node-card[data-node='n3'] .node-status").count()) === 0, "downstream n3 untouched by running n2");
+  await page.getByRole("button", { name: "▶ Run flow" }).click();
+  await until(async () => (await page.getByRole("button", { name: "▶ Run flow" }).isEnabled()) && (await page.locator(".node-card[data-node='n3'] .status-ok").count()) === 1, "flow ran");
+  check((await page.locator(".node-card[data-node='n2'] .status-cached").count()) === 1, "second run reused n2's cached output");
+  check(existsSync(join(vault, "notes/generated/release-summary.md")), "write_note node generated a note in the knowledge base");
+  const runs = readdirSync(join(vault, "runs/deploy-pipeline"));
+  check(runs.length === 2 && runs.every((f) => f.endsWith(".md")), `run logs written to runs/deploy-pipeline/ (${runs.length})`);
+  await page.locator(".node-card[data-node='n2'] .node-header").click();
+  await page.locator(".inspector .output pre").first().waitFor();
+  check((await page.locator(".inspector .output pre").first().textContent()).startsWith("[echo:llama3.2]"), "inspector shows the agent output");
+  await page.screenshot({ path: join(shots, "08-run.png") });
+  await page.getByRole("button", { name: /Last run log/ }).click();
+  await page.locator(".note-path", { hasText: "runs/deploy-pipeline/" }).waitFor();
+  check(true, "run log opens as a note");
+  await page.screenshot({ path: join(shots, "09-run-log.png") });
+
   if (process.env.NEXUS_E2E_EXTRA) {
     const extra = await import(process.env.NEXUS_E2E_EXTRA);
     await extra.default({ page, vault, check, until, sleep, shots });

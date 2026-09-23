@@ -903,3 +903,63 @@ button.danger {
 .hybrid-divider:hover {
   background: var(--accent);
 }
+
+/* ---------- execution ---------- */
+.run-btn {
+  color: var(--ok);
+  font-size: 11px;
+  padding: 1px 5px;
+}
+.node-status {
+  position: absolute;
+  left: 10px;
+  bottom: 6px;
+  font-size: 11px;
+  color: var(--fg-3);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.status-ok,
+.status-cached {
+  color: var(--ok);
+}
+.status-error {
+  color: var(--danger);
+}
+.status-running {
+  color: var(--accent);
+}
+.spinner {
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--accent);
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  display: inline-block;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.run-log {
+  margin: 0;
+  padding-left: 16px;
+  font-size: 11px;
+  color: var(--fg-2);
+  font-family: var(--mono);
+}
+.output pre {
+  max-height: 240px;
+  overflow: auto;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 6px 8px;
+  font-size: 11px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 4px 0 0;
+}

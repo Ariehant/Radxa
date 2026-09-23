@@ -10,7 +10,9 @@ import type {
   LinkRef,
   NoteContent,
   OutLink,
+  Config,
   Position,
+  RunResult,
   Priority,
   Saved,
   SearchHit,
@@ -90,6 +92,18 @@ export const api = {
       call<FlowView>("flow.updateNode", { dir, id, ...patch }),
   },
   templates: () => call<TemplateSummary[]>("template.list"),
+  exec: {
+    run: (dir: string, node?: string, use_cache = true) => call<RunResult>("exec.run", { dir, node, use_cache }),
+    last: (dir: string) => call<RunResult | null>("exec.last", { dir }),
+    clearCache: (dir: string) => call<null>("exec.clearCache", { dir }),
+  },
+  llm: {
+    models: () => call<string[]>("llm.models"),
+  },
+  config: {
+    get: () => call<Config>("config.get"),
+    set: (c: Config) => call<Config>("config.set", c),
+  },
   view: {
     flowTable: (dir: string) => call<FlowTable>("view.flowTable", { dir }),
   },

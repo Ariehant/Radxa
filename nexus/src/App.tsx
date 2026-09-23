@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
-import { onEvent, type IndexUpdated } from "./api/tauri";
+import { onEvent, type IndexUpdated, type RunProgress } from "./api/tauri";
 import { useStore } from "./state/store";
 import { SearchBox } from "./components/SearchBox";
 import { StatusBar } from "./components/StatusBar";
@@ -58,6 +58,7 @@ export default function App() {
     const subs = [
       onEvent<IndexUpdated>("index:updated", (e) => useStore.getState().onIndexUpdated(e)),
       onEvent("index:ready", () => void useStore.getState().refreshIndexStatus()),
+      onEvent<RunProgress>("run:progress", (e) => useFlowStore.getState().onRunProgress(e)),
     ];
     return () => subs.forEach((p) => void p.then((un) => un()));
   }, []);

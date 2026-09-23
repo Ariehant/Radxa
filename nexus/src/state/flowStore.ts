@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { api, type EdgeCheck, type FlowView, type NodeView, type TemplateSummary } from "../api/tauri";
+import { api, type EdgeCheck, type FlowView, type NodeView, type RunProgress, type RunResult, type RunStatus, type TemplateSummary } from "../api/tauri";
 import { compatible, splitRef } from "../views/FlowEditor/ports";
 
 export type FlowViewMode = "canvas" | "table" | "hybrid";
@@ -18,6 +18,9 @@ interface FlowState {
   selectedEdge: string | null; // "from->to"
   /** True while the user drags a node; external reloads wait. */
   dragging: boolean;
+  running: boolean;
+  runStatus: Record<string, { status: RunStatus; ms?: number; error?: string | null }>;
+  lastRun: RunResult | null;
 
   open: (dir: string) => Promise<void>;
   reload: () => Promise<void>;
@@ -32,6 +35,8 @@ interface FlowState {
   updateNode: (id: string, patch: { config?: Record<string, unknown>; title?: string }) => Promise<void>;
   setError: (e: string | null) => void;
   close: () => void;
+  run: (node?: string) => Promise<RunResult | null>;
+  onRunProgress: (e: RunProgress) => void;
 }
 
 function loadMode(): FlowViewMode {
@@ -53,12 +58,19 @@ export const useFlowStore = create<FlowState>((set, get) => ({
   selectedNode: null,
   selectedEdge: null,
   dragging: false,
+  running: false,
+  runStatus: {},
+  lastRun: null,
 
   open: async (dir) => {
-    set({ dir, loading: true, flow: get().dir === dir ? get().flow : null, selectedNode: null, selectedEdge: null, error: null });
+    const same = get().dir === dir;
+    set({ dir, loading: true, flow: same ? get().flow : null, selectedNode: null, selectedEdge: null, error: null, ...(same ? {} : { runStatus: {}, lastRun: null }) });
     try {
-      const [flow, templates] = await Promise.all([api.flow.load(dir), api.templates()]);
-      if (get().dir === dir) set({ flow, templates });
+      const [flow, templates, lastRun] = await Promise.all([api.flow.load(dir), api.templates(), api.exec.last(dir)]);
+      if (get().dir === dir) {
+        const runStatus = Object.fromEntries((lastRun?.nodes ?? []).map((n) => [n.node, { status: n.status, ms: n.ms, error: n.error }]));
+        set({ flow, templates, lastRun, runStatus });
+      }
     } catch (e) {
       set({ error: String(e) });
     } finally {
@@ -199,4 +211,31 @@ export const useFlowStore = create<FlowState>((set, get) => ({
 
   setError: (error) => set({ error }),
   close: () => set({ dir: null, flow: null, selectedNode: null, selectedEdge: null }),
+
+  run: async (node) => {
+    const dir = get().dir;
+    if (!dir || get().running) return null;
+    // Optimistic: mark the planned nodes as queued immediately.
+    set({ running: true, runStatus: node ? { ...get().runStatus, [node]: { status: "running" } } : {} });
+    try {
+      const r = await api.exec.run(dir, node);
+      if (get().dir === dir) {
+        const runStatus = { ...get().runStatus };
+        for (const n of r.nodes) runStatus[n.node] = { status: n.status, ms: n.ms, error: n.error };
+        set({ lastRun: r, runStatus });
+        if (!r.ok) set({ error: r.nodes.find((n) => n.error)?.error ?? "Run failed" });
+      }
+      return r;
+    } catch (e) {
+      set({ error: String(e), runStatus: node ? { ...get().runStatus, [node]: { status: "error", error: String(e) } } : get().runStatus });
+      return null;
+    } finally {
+      set({ running: false });
+    }
+  },
+
+  onRunProgress: (e) => {
+    if (e.flow !== get().dir) return;
+    set({ runStatus: { ...get().runStatus, [e.node]: { status: e.status, ms: e.ms, error: e.error } } });
+  },
 }));

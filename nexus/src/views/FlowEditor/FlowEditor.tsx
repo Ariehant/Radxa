@@ -1,4 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, type ReactNode } from "react";
+import type { NodeView } from "../../api/tauri";
+import { useStore } from "../../state/store";
 import { canvasCenter, useFlowStore } from "../../state/flowStore";
 import { Skeleton } from "../../components/Skeleton";
 import { Canvas } from "./Canvas";
@@ -53,12 +55,55 @@ function Palette() {
   );
 }
 
+function RunButton({ node }: { node: NodeView }) {
+  const running = useFlowStore((s) => s.running);
+  const run = useFlowStore((s) => s.run);
+  return (
+    <button
+      className="ghost run-btn"
+      title="Run this node (and anything upstream)"
+      disabled={running || node.missing_template}
+      onPointerDown={(e) => e.stopPropagation()}
+      onClick={(e) => {
+        e.stopPropagation();
+        void run(node.id);
+      }}
+    >
+      ▶
+    </button>
+  );
+}
+
+function RunBadge({ node }: { node: NodeView }) {
+  const st = useFlowStore((s) => s.runStatus[node.id]);
+  if (!st) return null;
+  const label: Record<string, ReactNode> = {
+    running: <span className="spinner" />,
+    ok: `✓ ${st.ms ?? 0} ms`,
+    cached: "✓ cached",
+    error: "✗ error",
+    skipped: "– skipped",
+  };
+  return (
+    <div className={`node-status status-${st.status}`} title={st.error ?? ""}>
+      {label[st.status]}
+    </div>
+  );
+}
+
+const renderActions = (n: NodeView) => <RunButton node={n} />;
+const renderStatus = (n: NodeView) => <RunBadge node={n} />;
+
 export function FlowEditor({ dir }: { dir: string }) {
   const flow = useFlowStore((s) => s.flow);
   const loading = useFlowStore((s) => s.loading);
   const open = useFlowStore((s) => s.open);
   const mode = useFlowStore((s) => s.mode);
   const setMode = useFlowStore((s) => s.setMode);
+  const running = useFlowStore((s) => s.running);
+  const run = useFlowStore((s) => s.run);
+  const lastRun = useFlowStore((s) => s.lastRun);
+  const openFile = useStore((s) => s.openFile);
 
   useEffect(() => {
     void open(dir);
@@ -78,6 +123,14 @@ export function FlowEditor({ dir }: { dir: string }) {
             ⚠ {flow.errors.length + invalid} issue{flow.errors.length + invalid === 1 ? "" : "s"}
           </span>
         )}
+        {lastRun && (
+          <button className="ghost" title={lastRun.log_path} onClick={() => void openFile(lastRun.log_path)}>
+            {lastRun.ok ? "✓" : "✗"} Last run log
+          </button>
+        )}
+        <button className="primary" disabled={running || flow.nodes.length === 0} onClick={() => void run()}>
+          {running ? "Running…" : "▶ Run flow"}
+        </button>
         <div className="segmented">
           {MODES.map((m) => (
             <button key={m.id} className={mode === m.id ? "active" : ""} onClick={() => setMode(m.id)}>
@@ -88,9 +141,9 @@ export function FlowEditor({ dir }: { dir: string }) {
       </div>
       <div className="flow-body">
         {mode !== "table" && <Palette />}
-        {mode === "canvas" && <Canvas />}
+        {mode === "canvas" && <Canvas renderActions={renderActions} renderStatus={renderStatus} />}
         {mode === "table" && <TableView />}
-        {mode === "hybrid" && <HybridView left={<Canvas />} right={<TableView />} />}
+        {mode === "hybrid" && <HybridView left={<Canvas renderActions={renderActions} renderStatus={renderStatus} />} right={<TableView />} />}
         {mode !== "hybrid" && <Inspector />}
       </div>
     </div>

@@ -160,3 +160,49 @@ export interface FlowTable {
   nodes: FlowNodeRow[];
   edges: FlowEdgeRow[];
 }
+
+export type RunStatus = "running" | "ok" | "cached" | "error" | "skipped";
+
+export interface NodeRun {
+  node: string;
+  title: string;
+  kind: string;
+  status: Exclude<RunStatus, "running">;
+  ms: number;
+  outputs: Record<string, unknown>;
+  error: string | null;
+  log: string[];
+}
+
+export interface RunResult {
+  flow: string;
+  run_id: string;
+  target: string | null;
+  ok: boolean;
+  nodes: NodeRun[];
+  created: string[];
+  log_path: string;
+  ms: number;
+}
+
+export interface RunProgress {
+  flow: string;
+  run: string;
+  node: string;
+  status: RunStatus;
+  ms?: number;
+  error?: string | null;
+}
+
+export interface Config {
+  llm: {
+    provider: string;
+    base_url: string;
+    model: string;
+    api_key?: string | null;
+    timeout_secs: number;
+    max_tool_steps: number;
+  };
+  ui: { theme: "system" | "light" | "dark"; editor_mode: string };
+  git: { auto_commit: boolean };
+}

@@ -1,12 +1,39 @@
 import { useEffect, useState } from "react";
 import { useFlowStore } from "../../state/flowStore";
 import { TYPE_COLOR } from "./ports";
+import type { NodeRun } from "../../api/tauri";
+
+function NodeOutput({ run }: { run: NodeRun | null }) {
+  if (!run) return null;
+  return (
+    <div className="field">
+      <span>
+        Last run · {run.status} · {run.ms} ms
+      </span>
+      {run.error && <em className="field-error">{run.error}</em>}
+      {run.log.length > 0 && (
+        <ul className="run-log">
+          {run.log.map((l, i) => (
+            <li key={i}>{l}</li>
+          ))}
+        </ul>
+      )}
+      {Object.entries(run.outputs).map(([port, v]) => (
+        <div key={port} className="output">
+          <b>{port}</b>
+          <pre>{typeof v === "string" ? v : JSON.stringify(v, null, 2)}</pre>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export function Inspector() {
   const flow = useFlowStore((s) => s.flow);
   const id = useFlowStore((s) => s.selectedNode);
   const updateNode = useFlowStore((s) => s.updateNode);
   const removeNode = useFlowStore((s) => s.removeNode);
+  const lastRun = useFlowStore((s) => s.lastRun);
   const node = flow?.nodes.find((n) => n.id === id);
   const [draft, setDraft] = useState("");
   const [bad, setBad] = useState<string | null>(null);
@@ -68,6 +95,7 @@ export function Inspector() {
         <textarea spellCheck={false} rows={10} value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={applyConfig} />
         {bad && <em className="field-error">{bad}</em>}
       </label>
+      <NodeOutput run={lastRun?.nodes.find((r) => r.node === node.id) ?? null} />
       <button className="danger" onClick={() => void removeNode(node.id)}>
         Delete node
       </button>
