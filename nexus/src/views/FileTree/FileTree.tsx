@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { useCallback, useMemo, useRef } from "react";
+import { api } from "../../api/tauri";
 import type { TreeEntry } from "../../api/tauri";
 import { VirtualList } from "../../components/VirtualList";
 import { Skeleton } from "../../components/Skeleton";
@@ -29,6 +30,22 @@ export function FileTree() {
 
   const rows = useMemo(() => visibleEntries(tree, expanded), [tree, expanded]);
 
+  // While the initial scan runs, files scrolled into view jump the queue
+  // (priority: open → viewport → recent → idle).
+  const timer = useRef<ReturnType<typeof setTimeout>>();
+  const onRange = useCallback(
+    (start: number, end: number) => {
+      clearTimeout(timer.current);
+      timer.current = setTimeout(() => {
+        const st = useStore.getState().indexStatus;
+        if (st && !st.scanning && st.pending === 0) return;
+        const paths = rows.slice(start, end).filter((e) => !e.is_dir).map((e) => e.path);
+        if (paths.length) void api.index.prioritize(paths, "viewport").catch(() => {});
+      }, 250);
+    },
+    [rows],
+  );
+
   if (loading && tree.length === 0) return <Skeleton lines={12} />;
 
   return (
@@ -37,6 +54,7 @@ export function FileTree() {
       items={rows}
       rowHeight={ROW}
       getKey={(e) => e.path}
+      onRangeChange={onRange}
       renderRow={(e) => (
         <div
           className={"tree-row" + (e.path === current ? " active" : "")}

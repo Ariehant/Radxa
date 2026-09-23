@@ -35,6 +35,9 @@ pub fn register(r: &mut Router) {
         let cfg = s.vault()?.config();
         crate::agent::provider_for(&cfg.llm)?.models()
     });
+    r.add("llm.providers", |_s, _p: Value| {
+        Ok(serde_json::json!([{ "id": "ollama", "label": "Ollama (local)" }, { "id": "echo", "label": "Echo (offline, for testing)" }]))
+    });
     r.add("config.get", |s, _p: Value| Ok(s.vault()?.config()));
     r.add("config.set", |s, p: crate::config::Config| {
         s.vault()?.set_config(p.clone())?;

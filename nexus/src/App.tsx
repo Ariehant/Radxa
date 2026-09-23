@@ -8,6 +8,8 @@ import { FileTree } from "./views/FileTree/FileTree";
 import { NoteEditor } from "./views/NoteEditor/NoteEditor";
 import { FlowEditor } from "./views/FlowEditor/FlowEditor";
 import { useFlowStore } from "./state/flowStore";
+import { Settings } from "./views/Settings/Settings";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 async function pickFolder(title: string): Promise<string | null> {
   const picked = await open({ directory: true, multiple: false, title });
@@ -51,6 +53,9 @@ export default function App() {
   const createNote = useStore((s) => s.createNote);
   const createFlow = useStore((s) => s.createFlow);
   const flowDir = useStore((s) => s.flowDir);
+  const panel = useStore((s) => s.panel);
+  const docPath = useStore((s) => s.doc?.path);
+  const openSettings = useStore((s) => s.openSettings);
   const flowError = useFlowStore((s) => s.error);
   const setFlowError = useFlowStore((s) => s.setError);
 
@@ -106,6 +111,9 @@ export default function App() {
                 >
                   ◇
                 </button>
+                <button className="ghost" title="Settings" onClick={() => void openSettings()}>
+                  ⚙
+                </button>
                 <button className="ghost" onClick={closeVault} title="Close vault">
                   ✕
                 </button>
@@ -115,7 +123,11 @@ export default function App() {
             <FileTree />
             <StatusBar />
           </aside>
-          <main className="main">{flowDir ? <FlowEditor dir={flowDir} /> : <NoteEditor />}</main>
+          <main className="main">
+            <ErrorBoundary resetKey={panel ?? flowDir ?? docPath ?? ""} label={panel ? "Settings" : flowDir ? "Flow editor" : "Editor"}>
+              {panel === "settings" ? <Settings /> : flowDir ? <FlowEditor dir={flowDir} /> : <NoteEditor />}
+            </ErrorBoundary>
+          </main>
         </div>
       )}
     </div>

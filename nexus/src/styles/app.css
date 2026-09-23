@@ -30,6 +30,21 @@
   color-scheme: dark;
 }
 
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #16181f;
+    --bg-2: #1c1f28;
+    --bg-3: #252935;
+    --fg: #e6e8ee;
+    --fg-2: #a4aabb;
+    --fg-3: #737a8c;
+    --border: #2d3240;
+    --accent: #7c8cff;
+    --accent-bg: #262b4a;
+    color-scheme: dark;
+  }
+}
+
 * {
   box-sizing: border-box;
 }
@@ -962,4 +977,85 @@ button.danger {
   white-space: pre-wrap;
   word-break: break-word;
   margin: 4px 0 0;
+}
+
+/* ---------- settings / errors ---------- */
+.settings {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 24px 32px 64px;
+  overflow: auto;
+  width: 100%;
+}
+.settings h2 {
+  margin: 0 0 4px;
+}
+.settings h3 {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--fg-2);
+  margin: 24px 0 8px;
+}
+.settings section {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 16px;
+}
+.settings .field {
+  padding: 6px 0;
+}
+.settings .row {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+.settings .row .field {
+  flex: 1;
+}
+.check {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.settings-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 20px;
+}
+.error-boundary {
+  margin: auto;
+  max-width: 560px;
+  padding: 24px;
+  border: 1px solid var(--danger);
+  border-radius: 8px;
+}
+.error-boundary pre {
+  white-space: pre-wrap;
+  color: var(--danger);
+  font-size: 12px;
+}
+
+.node-card.compact {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-2);
+  cursor: move;
+  font-size: 22px;
+  padding: 8px;
+}
+.node-card.compact .node-title {
+  flex: none;
+  max-width: 100%;
+}
+.sidebar-header {
+  gap: 6px;
+}
+.sidebar-header .vault-name {
+  flex: 1;
+  min-width: 0;
+}
+.sidebar-header > span:last-child {
+  display: flex;
+  flex: none;
 }

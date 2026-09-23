@@ -122,6 +122,9 @@ fn commit(root: &Path, workdir: &Path, paths: &BTreeSet<String>) -> Result<Optio
     let mut index = repo.index().map_err(git_err)?;
     let mut touched = Vec::new();
     for rel in paths {
+        if rel.starts_with(crate::config::CREDENTIALS_REL) {
+            continue;
+        }
         let abs: PathBuf = crate::fs::resolve(root, rel)?;
         let Ok(in_repo) = abs.strip_prefix(workdir) else { continue };
         if repo.is_path_ignored(in_repo).unwrap_or(false) {
@@ -140,6 +143,12 @@ fn commit(root: &Path, workdir: &Path, paths: &BTreeSet<String>) -> Result<Optio
     }
     if touched.is_empty() {
         return Ok(None);
+    }
+    // Secrets never enter history, gitignored or not.
+    if let Ok(cred) = crate::fs::resolve(root, crate::config::CREDENTIALS_REL) {
+        if let Ok(rel) = cred.strip_prefix(workdir) {
+            let _ = index.remove_path(rel);
+        }
     }
     index.write().map_err(git_err)?;
     let tree_id = index.write_tree().map_err(git_err)?;
@@ -173,11 +182,12 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let root = dir.path();
         init(root).unwrap();
-        std::fs::write(root.join(".gitignore"), ".nexus/\n").unwrap();
+        std::fs::write(root.join(".gitignore"), ".nexus/index.db\n").unwrap();
         std::fs::create_dir_all(root.join("notes")).unwrap();
         std::fs::create_dir_all(root.join(".nexus")).unwrap();
         std::fs::write(root.join("notes/a.md"), "a").unwrap();
         std::fs::write(root.join(".nexus/index.db"), "x").unwrap();
+        std::fs::write(root.join(".nexus/credentials.toml"), "llm_api_key = \"k\"").unwrap();
         let g = GitSync::open(root).unwrap();
         g.changed("notes/a.md");
         g.changed(".nexus/index.db");
@@ -188,6 +198,12 @@ mod tests {
         let head = repo.head().unwrap().peel_to_commit().unwrap();
         assert_eq!(head.message().unwrap(), "nexus: update notes/a.md");
         assert!(head.tree().unwrap().get_path(Path::new(".nexus/index.db")).is_err(), "ignored files never committed");
+
+        // Even a whole-tree add (initial commit) skips credentials, gitignored or not.
+        g.changed("");
+        g.flush().unwrap();
+        let head = repo.head().unwrap().peel_to_commit().unwrap();
+        assert!(head.tree().unwrap().get_path(Path::new(".nexus/credentials.toml")).is_err());
 
         // No-op save produces no commit.
         g.changed("notes/a.md");

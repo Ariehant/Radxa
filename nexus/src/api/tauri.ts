@@ -99,6 +99,7 @@ export const api = {
   },
   llm: {
     models: () => call<string[]>("llm.models"),
+    providers: () => call<{ id: string; label: string }[]>("llm.providers"),
   },
   config: {
     get: () => call<Config>("config.get"),

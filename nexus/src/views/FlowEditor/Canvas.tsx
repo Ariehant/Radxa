@@ -17,6 +17,8 @@ interface Props {
 }
 
 const MARGIN = 300;
+/** Below this zoom, node cards and edges render in low detail. */
+const LOD_ZOOM = 0.45;
 
 export function Canvas({ renderActions, renderStatus }: Props) {
   const flow = useFlowStore((s) => s.flow);
@@ -180,6 +182,7 @@ export function Canvas({ renderActions, renderStatus }: Props) {
   };
 
   if (!flow) return null;
+  const compact = view.zoom < LOD_ZOOM && !link;
   const visibleNodes = flow.nodes.filter((n) => intersects({ x: n.x, y: n.y, w: n.w, h: nodeHeight(n) }, viewport));
 
   return (
@@ -202,11 +205,13 @@ export function Canvas({ renderActions, renderStatus }: Props) {
           selected={selectedEdge}
           onSelect={(k) => select(null, k)}
           pending={link && { a: link.a, b: link.b, bad: link.bad }}
+          compact={compact}
         />
         {visibleNodes.map((n) => (
           <NodeCard
             key={n.id}
             node={n}
+            compact={compact}
             selected={n.id === selectedNode}
             isEntry={flow.entry === n.id}
             dragType={link?.type ?? null}
@@ -218,7 +223,7 @@ export function Canvas({ renderActions, renderStatus }: Props) {
           />
         ))}
       </div>
-      <div className="flow-zoom">
+      <div className="flow-zoom" onPointerDown={(e) => e.stopPropagation()}>
         <button className="ghost" onClick={() => setView((v) => ({ ...v, zoom: Math.min(2.5, v.zoom * 1.2) }))}>
           ＋
         </button>

@@ -183,3 +183,27 @@ fn perf_full_reindex_10k() {
     assert!(rel < Duration::from_millis(5), "relation query");
     assert!(save < Duration::from_millis(200));
 }
+
+/// Spec §9: vault open (10k files) < 3 s to first paint, indexing continues
+/// in the background. First paint = open + file tree listing.
+#[test]
+#[ignore]
+fn perf_vault_open_10k_first_paint() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    for i in 0..10_000 {
+        write(root, &format!("notes/d{}/n{i}.md", i % 100), &format!("# N{i}\n[[N{}]]\n", (i + 1) % 10_000));
+    }
+    let t = Instant::now();
+    let v = crate::vault::Vault::open(root, Arc::new(NullSink)).unwrap();
+    let tree = v.tree().unwrap();
+    let first_paint = t.elapsed();
+    let json = serde_json::to_string(&tree).unwrap();
+    let with_ipc = t.elapsed();
+    assert!(tree.len() > 10_000);
+    v.index.flush().unwrap();
+    let indexed = t.elapsed();
+    eprintln!("10k vault: open+tree {first_paint:?} | +serialize ({} KB) {with_ipc:?} | fully indexed {indexed:?}", json.len() / 1024);
+    assert!(with_ipc < Duration::from_secs(3));
+    v.shutdown();
+}

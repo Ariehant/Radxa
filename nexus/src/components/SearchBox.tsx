@@ -8,6 +8,19 @@ export function SearchBox() {
   const [open, setOpen] = useState(false);
   const openFile = useStore((s) => s.openFile);
   const seq = useRef(0);
+  const input = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === "k" || e.key === "p")) {
+        e.preventDefault();
+        input.current?.focus();
+        input.current?.select();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   useEffect(() => {
     const query = q.trim();
@@ -30,7 +43,8 @@ export function SearchBox() {
   return (
     <div className="search" onBlur={() => setTimeout(() => setOpen(false), 150)}>
       <input
-        placeholder="Search vault…"
+        ref={input}
+        placeholder="Search vault…  (Ctrl+K)"
         value={q}
         onFocus={() => setOpen(true)}
         onChange={(e) => {

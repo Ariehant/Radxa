@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "test": "vitest run",
-    "e2e": "cargo build --manifest-path src-tauri/Cargo.toml --example dev_bridge && node e2e/smoke.mjs"
+    "e2e": "cargo build --manifest-path src-tauri/Cargo.toml --example dev_bridge && node e2e/smoke.mjs",
+    "e2e:prod": "cargo build --release --manifest-path src-tauri/Cargo.toml --example dev_bridge && vite build && NEXUS_E2E_PROD=1 node e2e/smoke.mjs"
   },
   "dependencies": {
     "@codemirror/lang-markdown": "^6.3.0",

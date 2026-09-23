@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { useFlowStore } from "./flowStore";
+import { applyTheme } from "./theme";
 import { api, RpcError, type IndexStatus, type IndexUpdated, type LinkRef, type TreeEntry, type VaultInfo } from "../api/tauri";
 
 export type EditorMode = "rich" | "source";
@@ -26,6 +27,7 @@ interface NexusState {
   docLoading: boolean;
   /** When set, the main pane shows the flow editor for this directory. */
   flowDir: string | null;
+  panel: "settings" | null;
   editorMode: EditorMode;
   error: string | null;
   backlinks: LinkRef[];
@@ -37,6 +39,7 @@ interface NexusState {
   toggleDir: (path: string) => void;
   openFile: (path: string) => Promise<void>;
   openFlow: (dir: string) => Promise<void>;
+  openSettings: () => Promise<void>;
   createFlow: (name: string) => Promise<void>;
   editDoc: (content: string) => void;
   saveDoc: (force?: boolean) => Promise<void>;
@@ -70,6 +73,7 @@ export const useStore = create<NexusState>((set, get) => ({
   doc: null,
   docLoading: false,
   flowDir: null,
+  panel: null,
   editorMode: loadMode(),
   error: null,
   backlinks: [],
@@ -78,7 +82,8 @@ export const useStore = create<NexusState>((set, get) => ({
   openVault: async (path, create = false) => {
     try {
       const vault = create ? await api.vault.create(path) : await api.vault.open(path);
-      set({ vault, doc: null, flowDir: null, expanded: DEFAULT_EXPANDED, error: null });
+      set({ vault, doc: null, flowDir: null, panel: null, expanded: DEFAULT_EXPANDED, error: null });
+      void api.config.get().then((c) => applyTheme(c.ui.theme)).catch(() => {});
       await get().refreshTree();
       void get().refreshIndexStatus();
     } catch (e) {
@@ -109,7 +114,7 @@ export const useStore = create<NexusState>((set, get) => ({
     const flow = /^(flows\/.+)\/flow\.(md|canvas)$/i.exec(path);
     if (flow) return get().openFlow(flow[1]);
     if (get().doc?.dirty) await get().saveDoc();
-    set({ docLoading: true, flowDir: null });
+    set({ docLoading: true, flowDir: null, panel: null });
     try {
       const note = await api.note.read(path);
       set({
@@ -126,7 +131,12 @@ export const useStore = create<NexusState>((set, get) => ({
 
   openFlow: async (dir) => {
     if (get().doc?.dirty) await get().saveDoc();
-    set({ flowDir: dir, doc: null, backlinks: [] });
+    set({ flowDir: dir, doc: null, backlinks: [], panel: null });
+  },
+
+  openSettings: async () => {
+    if (get().doc?.dirty) await get().saveDoc();
+    set({ panel: "settings" });
   },
 
   createFlow: async (name) => {

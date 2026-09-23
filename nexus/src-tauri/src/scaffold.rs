@@ -5,7 +5,7 @@ use crate::fs::atomic_write;
 use std::path::Path;
 
 const DEFAULTS: &[(&str, &str)] = &[
-    (".gitignore", ".nexus/index.db*\n.nexus/*.tmp\n"),
+    (".gitignore", ".nexus/index.db*\n.nexus/*.tmp\n.nexus/credentials.toml\n"),
     (".gitattributes", "* text=auto eol=lf\n"),
     (
         "notes/welcome.md",

@@ -68,9 +68,17 @@ function check(cond, msg) {
   if (!cond) failures++;
 }
 
-const exe = join(root, "src-tauri/target/debug/examples", process.platform === "win32" ? "dev_bridge.exe" : "dev_bridge");
+// NEXUS_E2E_PROD=1: release backend + production frontend bundle, and the
+// spec §9 perf targets become hard assertions (dev builds only report them).
+const PROD = !!process.env.NEXUS_E2E_PROD;
+const exe = join(root, `src-tauri/target/${PROD ? "release" : "debug"}/examples`, process.platform === "win32" ? "dev_bridge.exe" : "dev_bridge");
 const bridge = start(exe, [String(BRIDGE_PORT)]);
-const vite = start(process.execPath, [join(root, "node_modules/vite/bin/vite.js"), "--port", String(UI_PORT), "--strictPort"]);
+const viteBin = join(root, "node_modules/vite/bin/vite.js");
+const vite = start(process.execPath, PROD ? [viteBin, "preview", "--port", String(UI_PORT), "--strictPort"] : [viteBin, "--port", String(UI_PORT), "--strictPort"]);
+function perf(ok, msg) {
+  if (PROD) check(ok, msg);
+  else console.log(`${ok ? "✓" : "·"} ${msg} [dev build: informational]`);
+}
 
 try {
   await Promise.all([waitFor(bridge, /dev bridge on/), waitFor(vite, /Local:/)]);
@@ -88,7 +96,7 @@ try {
   await page.goto(`http://localhost:${UI_PORT}/`);
   await page.getByText("Create vault…").click();
   await page.locator(".tree-row", { hasText: "welcome.md" }).waitFor();
-  check(Date.now() - t0 < 3000, `vault open → first paint in ${Date.now() - t0} ms (< 3 s)`);
+  perf(Date.now() - t0 < 3000, `vault open → first paint in ${Date.now() - t0} ms (< 3 s)`);
   check(await page.locator(".tree-row", { hasText: "deploy-pipeline" }).isVisible(), "file tree shows flows/");
   await page.screenshot({ path: join(shots, "01-vault.png") });
 
@@ -130,7 +138,7 @@ try {
   const t1 = Date.now();
   await page.locator(".tree-row", { hasText: "flow.md" }).click();
   await page.locator(".node-card").first().waitFor();
-  check(Date.now() - t1 < 1000, `flow canvas open in ${Date.now() - t1} ms`);
+  perf(Date.now() - t1 < 1000, `flow canvas open in ${Date.now() - t1} ms`);
   check((await page.locator(".node-card").count()) === 3, "3 nodes rendered from flow.md at flow.canvas positions");
   check((await page.locator(".edge-line").count()) === 2, "2 typed edges rendered");
   await page.screenshot({ path: join(shots, "04-flow-canvas.png") });
@@ -225,6 +233,71 @@ try {
   await page.locator(".note-path", { hasText: "runs/deploy-pipeline/" }).waitFor();
   check(true, "run log opens as a note");
   await page.screenshot({ path: join(shots, "09-run-log.png") });
+
+  // --- M7: settings, theme, perf targets
+  await page.getByTitle("Settings").click();
+  await page.getByRole("heading", { name: "Settings" }).waitFor();
+  await page.getByRole("button", { name: "Dark" }).click();
+  check((await page.evaluate(() => document.documentElement.dataset.theme)) === "dark", "theme switch applies instantly");
+  await page.screenshot({ path: join(shots, "10-settings-dark.png") });
+  await page.getByRole("button", { name: "Save settings" }).click();
+  await until(() => readFileSync(join(vault, ".nexus/config.toml"), "utf8").includes('theme = "dark"'), "config saved");
+  check(true, "settings persisted to .nexus/config.toml");
+  await page.getByRole("button", { name: "Light" }).click();
+  await page.getByRole("button", { name: "Save settings" }).click();
+
+  // 500-node flow written straight to disk (external edit → watcher → index).
+  const { writeFileSync, mkdirSync: mk } = await import("node:fs");
+  const N = 500;
+  const nodes = [], edges = [], cnodes = [];
+  for (let i = 1; i <= N; i++) {
+    nodes.push(`  - id: n${i}\n    ref: templates/nodes/${i === 1 ? "fetch-data" : "llm-summarize"}.md`);
+    if (i > 1) edges.push(`  - { from: n1.out, to: n${i}.in, type: "document[]" }`);
+    cnodes.push({ id: `n${i}`, type: "text", x: (i % 25) * 300, y: Math.floor(i / 25) * 200, width: 240, height: 120, text: "" });
+  }
+  mk(join(vault, "flows/big"), { recursive: true });
+  writeFileSync(join(vault, "flows/big/flow.md"), `---\ntype: flow\nname: big\nnodes:\n${nodes.join("\n")}\nedges:\n${edges.join("\n")}\n---\n`);
+  writeFileSync(join(vault, "flows/big/flow.canvas"), JSON.stringify({ nodes: cnodes, edges: [] }));
+  await page.locator(".tree-row[title='flows/big']").waitFor({ timeout: 10000 });
+  await page.locator(".tree-row[title='flows/big']").click();
+  await page.locator(".tree-row[title='flows/big/flow.md']").waitFor();
+  // Time click → first painted node card entirely inside the page.
+  const openMs = await page.evaluate(
+    () =>
+      new Promise((res) => {
+        const t0 = performance.now();
+        document.querySelector(".tree-row[title='flows/big/flow.md']").click();
+        const tick = () => {
+          const cards = document.querySelectorAll(".node-card");
+          if (document.querySelector(".flow-name")?.textContent === "big" && cards.length > 0) requestAnimationFrame(() => res(performance.now() - t0));
+          else requestAnimationFrame(tick);
+        };
+        tick();
+      }),
+  );
+  perf(openMs < 200, `500-node flow canvas open → painted: ${openMs.toFixed(0)} ms (target < 200 ms)`);
+  check((await page.locator(".node-card.compact").count()) > 0, "zoomed-out canvas renders low-detail cards");
+  check((await page.locator(".flow-errors").count()) === 0, "500-node fan-out flow validates cleanly");
+  // Zoom in on one corner: only on-screen nodes stay mounted.
+  for (let i = 0; i < 4; i++) await page.locator(".flow-zoom button").first().click();
+  const rendered = await page.locator(".node-card").count();
+  check(rendered > 0 && rendered < N / 2, `viewport culling: ${rendered}/${N} node cards mounted when zoomed in`);
+  await page.screenshot({ path: join(shots, "11-big-flow.png") });
+  const tableMs = await page.evaluate(
+    () =>
+      new Promise((res) => {
+        const t0 = performance.now();
+        [...document.querySelectorAll(".segmented button")].find((b) => b.textContent === "Table").click();
+        const tick = () => {
+          if (document.querySelectorAll(".nodes-grid:not(.grid-head)").length > 0) requestAnimationFrame(() => res(performance.now() - t0));
+          else requestAnimationFrame(tick);
+        };
+        tick();
+      }),
+  );
+  perf(tableMs < 100, `500-row table view query → painted: ${tableMs.toFixed(0)} ms (target < 100 ms)`);
+  check((await page.locator(".panel-title", { hasText: "Nodes" }).textContent()).includes("500"), "table view has all 500 rows (virtualised)");
+  await page.getByRole("button", { name: "Canvas" }).click();
 
   if (process.env.NEXUS_E2E_EXTRA) {
     const extra = await import(process.env.NEXUS_E2E_EXTRA);

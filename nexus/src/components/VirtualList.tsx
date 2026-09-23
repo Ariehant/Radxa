@@ -7,10 +7,12 @@ interface Props<T> {
   overscan?: number;
   className?: string;
   getKey?: (item: T, index: number) => string | number;
+  /** Called with the currently visible index range (for viewport-priority work). */
+  onRangeChange?: (start: number, end: number) => void;
 }
 
 /** Fixed-row-height windowed list. Only rows in (and near) the viewport mount. */
-export function VirtualList<T>({ items, rowHeight, renderRow, overscan = 8, className, getKey }: Props<T>) {
+export function VirtualList<T>({ items, rowHeight, renderRow, overscan = 8, className, getKey, onRangeChange }: Props<T>) {
   const ref = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [height, setHeight] = useState(600);
@@ -26,6 +28,13 @@ export function VirtualList<T>({ items, rowHeight, renderRow, overscan = 8, clas
 
   const start = Math.max(0, Math.floor(scrollTop / rowHeight) - overscan);
   const end = Math.min(items.length, Math.ceil((scrollTop + height) / rowHeight) + overscan);
+  const visStart = Math.floor(scrollTop / rowHeight);
+  const visEnd = Math.min(items.length, Math.ceil((scrollTop + height) / rowHeight));
+  useEffect(() => {
+    onRangeChange?.(visStart, visEnd);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visStart, visEnd, items]);
+
   const rows: ReactNode[] = [];
   for (let i = start; i < end; i++) {
     rows.push(

@@ -5,6 +5,8 @@ import { HEADER_H, ROW_H, nodeHeight } from "./ports";
 
 interface Props {
   node: NodeView;
+  /** Zoomed far out: draw a lightweight box instead of full ports (level of detail). */
+  compact?: boolean;
   selected: boolean;
   isEntry: boolean;
   dragType: PortType | null;
@@ -15,8 +17,20 @@ interface Props {
   onStartLink: (e: PointerEvent, ref: string, type: PortType) => void;
 }
 
-function NodeCardImpl({ node, selected, isEntry, dragType, connected, status, actions, onStartDrag, onStartLink }: Props) {
+function NodeCardImpl({ node, compact, selected, isEntry, dragType, connected, status, actions, onStartDrag, onStartLink }: Props) {
   const rows = Math.max(node.inputs.length, node.outputs.length);
+  if (compact) {
+    return (
+      <div
+        className={"node-card compact" + (selected ? " selected" : "") + (node.missing_template ? " missing" : "")}
+        style={{ transform: `translate(${node.x}px, ${node.y}px)`, width: node.w, height: nodeHeight(node) }}
+        data-node={node.id}
+        onPointerDown={(e) => onStartDrag(e, node)}
+      >
+        <span className="node-title">{node.title}</span>
+      </div>
+    );
+  }
   return (
     <div
       className={"node-card" + (selected ? " selected" : "") + (node.missing_template ? " missing" : "")}

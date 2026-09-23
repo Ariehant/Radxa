@@ -8,12 +8,14 @@ interface Props {
   selected: string | null;
   onSelect: (key: string) => void;
   pending: { a: { x: number; y: number }; b: { x: number; y: number }; bad: boolean } | null;
+  /** Far zoom: skip hit areas and tooltips. */
+  compact?: boolean;
 }
 
 export const edgeKey = (e: { from: string; to: string }) => `${e.from}->${e.to}`;
 
 /** Only edges whose bounding box touches the viewport are rendered (spec §9.5). */
-export function EdgeLayer({ edges, nodes, viewport, selected, onSelect, pending }: Props) {
+export function EdgeLayer({ edges, nodes, viewport, selected, onSelect, pending, compact }: Props) {
   const paths = [];
   for (const e of edges) {
     const f = splitRef(e.from);
@@ -29,6 +31,10 @@ export function EdgeLayer({ edges, nodes, viewport, selected, onSelect, pending 
     const key = edgeKey(e);
     const d = bezier(a, b);
     const color = !e.valid ? "var(--danger)" : e.from_type ? TYPE_COLOR[e.from_type] : "var(--fg-3)";
+    if (compact) {
+      paths.push(<path key={key} d={d} className={"edge-line" + (e.valid ? "" : " invalid")} stroke={color} />);
+      continue;
+    }
     paths.push(
       <g key={key} className={"edge" + (e.valid ? "" : " invalid") + (selected === key ? " selected" : "")}>
         <path d={d} className="edge-hit" onPointerDown={(ev) => { ev.stopPropagation(); onSelect(key); }}>

@@ -5,6 +5,9 @@ import "@fontsource/inter/500.css";
 import "@fontsource/inter/600.css";
 import "./styles/app.css";
 import App from "./App";
+import { restoreTheme } from "./state/theme";
+
+restoreTheme();
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
