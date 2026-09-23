@@ -1,6 +1,7 @@
 //! RPC surface. Each module contributes methods via `register`; the Tauri
 //! layer exposes exactly one command, `rpc`, which dispatches JSON-RPC 2.0.
 
+pub mod flows;
 pub mod notes;
 pub mod vault;
 
@@ -14,6 +15,7 @@ pub fn router() -> &'static Router {
         let mut r = Router::default();
         vault::register(&mut r);
         notes::register(&mut r);
+        flows::register(&mut r);
         r.add("rpc.methods", |_s, _p: serde_json::Value| Ok(router_methods()));
         r
     })

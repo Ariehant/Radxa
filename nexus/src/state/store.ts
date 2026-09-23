@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { useFlowStore } from "./flowStore";
 import { api, RpcError, type IndexStatus, type IndexUpdated, type LinkRef, type TreeEntry, type VaultInfo } from "../api/tauri";
 
 export type EditorMode = "rich" | "source";
@@ -23,6 +24,8 @@ interface NexusState {
   expanded: Record<string, boolean>;
   doc: OpenDoc | null;
   docLoading: boolean;
+  /** When set, the main pane shows the flow editor for this directory. */
+  flowDir: string | null;
   editorMode: EditorMode;
   error: string | null;
   backlinks: LinkRef[];
@@ -33,6 +36,8 @@ interface NexusState {
   refreshTree: () => Promise<void>;
   toggleDir: (path: string) => void;
   openFile: (path: string) => Promise<void>;
+  openFlow: (dir: string) => Promise<void>;
+  createFlow: (name: string) => Promise<void>;
   editDoc: (content: string) => void;
   saveDoc: (force?: boolean) => Promise<void>;
   reloadDoc: () => Promise<void>;
@@ -64,6 +69,7 @@ export const useStore = create<NexusState>((set, get) => ({
   expanded: DEFAULT_EXPANDED,
   doc: null,
   docLoading: false,
+  flowDir: null,
   editorMode: loadMode(),
   error: null,
   backlinks: [],
@@ -72,7 +78,7 @@ export const useStore = create<NexusState>((set, get) => ({
   openVault: async (path, create = false) => {
     try {
       const vault = create ? await api.vault.create(path) : await api.vault.open(path);
-      set({ vault, doc: null, expanded: DEFAULT_EXPANDED, error: null });
+      set({ vault, doc: null, flowDir: null, expanded: DEFAULT_EXPANDED, error: null });
       await get().refreshTree();
       void get().refreshIndexStatus();
     } catch (e) {
@@ -83,7 +89,7 @@ export const useStore = create<NexusState>((set, get) => ({
   closeVault: async () => {
     await get().saveDoc();
     await api.vault.close();
-    set({ vault: null, tree: [], doc: null, backlinks: [] });
+    set({ vault: null, tree: [], doc: null, backlinks: [], flowDir: null });
   },
 
   refreshTree: async () => {
@@ -100,8 +106,10 @@ export const useStore = create<NexusState>((set, get) => ({
   toggleDir: (path) => set((s) => ({ expanded: { ...s.expanded, [path]: !s.expanded[path] } })),
 
   openFile: async (path) => {
+    const flow = /^(flows\/.+)\/flow\.(md|canvas)$/i.exec(path);
+    if (flow) return get().openFlow(flow[1]);
     if (get().doc?.dirty) await get().saveDoc();
-    set({ docLoading: true });
+    set({ docLoading: true, flowDir: null });
     try {
       const note = await api.note.read(path);
       set({
@@ -113,6 +121,20 @@ export const useStore = create<NexusState>((set, get) => ({
       set({ error: String(e) });
     } finally {
       set({ docLoading: false });
+    }
+  },
+
+  openFlow: async (dir) => {
+    if (get().doc?.dirty) await get().saveDoc();
+    set({ flowDir: dir, doc: null, backlinks: [] });
+  },
+
+  createFlow: async (name) => {
+    try {
+      const f = await api.flow.create(name);
+      await get().openFlow(f.dir);
+    } catch (e) {
+      set({ error: String(e) });
     }
   },
 
@@ -196,6 +218,10 @@ export const useStore = create<NexusState>((set, get) => ({
 
   onIndexUpdated: (e) => {
     if (e.structural) void get().refreshTree();
+    const flowDir = get().flowDir;
+    if (flowDir && e.changed.some((p) => p.startsWith(flowDir + "/") || p.startsWith("templates/"))) {
+      void useFlowStore.getState().reload();
+    }
     const doc = get().doc;
     if (doc && e.changed.some((p) => p.toLowerCase() === doc.path.toLowerCase())) {
       // Changed on disk. If it wasn't our own save, pull it in (or flag a

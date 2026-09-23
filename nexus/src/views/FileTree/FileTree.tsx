@@ -25,7 +25,7 @@ export function FileTree() {
   const expanded = useStore((s) => s.expanded);
   const toggleDir = useStore((s) => s.toggleDir);
   const openFile = useStore((s) => s.openFile);
-  const current = useStore((s) => s.doc?.path);
+  const current = useStore((s) => s.doc?.path ?? (s.flowDir ? `${s.flowDir}/flow.md` : undefined));
 
   const rows = useMemo(() => visibleEntries(tree, expanded), [tree, expanded]);
 

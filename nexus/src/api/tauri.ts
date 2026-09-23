@@ -2,7 +2,21 @@
 // every operation is a JSON-RPC 2.0 call through the single `rpc` command.
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type { IndexStatus, LinkRef, NoteContent, OutLink, Priority, Saved, SearchHit, TreeEntry, VaultInfo } from "./types";
+import type {
+  FlowSummary,
+  FlowView,
+  IndexStatus,
+  LinkRef,
+  NoteContent,
+  OutLink,
+  Position,
+  Priority,
+  Saved,
+  SearchHit,
+  TemplateSummary,
+  TreeEntry,
+  VaultInfo,
+} from "./types";
 
 export * from "./types";
 
@@ -62,6 +76,19 @@ export const api = {
     rename: (from: string, to: string) => call<string>("file.rename", { from, to }),
   },
   search: (query: string, limit = 50) => call<SearchHit[]>("search.query", { query, limit }),
+  flow: {
+    list: () => call<FlowSummary[]>("flow.list"),
+    load: (dir: string) => call<FlowView>("flow.load", { dir }),
+    create: (name: string) => call<FlowView>("flow.create", { name }),
+    saveLayout: (dir: string, positions: Position[]) => call<null>("flow.saveLayout", { dir, positions }),
+    connect: (dir: string, from: string, to: string) => call<FlowView>("flow.connect", { dir, from, to }),
+    disconnect: (dir: string, from: string, to: string) => call<FlowView>("flow.disconnect", { dir, from, to }),
+    addNode: (dir: string, ref: string, x: number, y: number) => call<FlowView>("flow.addNode", { dir, ref, x, y }),
+    removeNode: (dir: string, id: string) => call<FlowView>("flow.removeNode", { dir, id }),
+    updateNode: (dir: string, id: string, patch: { config?: Record<string, unknown>; title?: string }) =>
+      call<FlowView>("flow.updateNode", { dir, id, ...patch }),
+  },
+  templates: () => call<TemplateSummary[]>("template.list"),
   index: {
     status: () => call<IndexStatus>("index.status"),
     rebuild: () => call<null>("index.rebuild"),

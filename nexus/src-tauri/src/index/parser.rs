@@ -94,12 +94,56 @@ pub fn parse_frontmatter(yaml: &str) -> Result<Map<String, Value>, String> {
     if yaml.trim().is_empty() {
         return Ok(Map::new());
     }
-    let v: serde_yaml::Value = serde_yaml::from_str(yaml).map_err(|e| e.to_string())?;
+    let v: serde_yaml::Value = match serde_yaml::from_str(yaml) {
+        Ok(v) => v,
+        // The spec writes `{ name: in, type: document[] }`: a plain scalar
+        // containing `[` is illegal inside a YAML flow mapping. Accept it
+        // by quoting such list-type values and retrying.
+        Err(first) => serde_yaml::from_str(&quote_list_types(yaml)).map_err(|_| first.to_string())?,
+    };
     match serde_json::to_value(v).map_err(|e| e.to_string())? {
         Value::Object(m) => Ok(m),
         Value::Null => Ok(Map::new()),
         _ => Err("frontmatter is not a mapping".into()),
     }
+}
+
+/// Quote `word[]` values that follow `:` and precede `,` or `}` (flow maps).
+pub fn quote_list_types(yaml: &str) -> String {
+    let b = yaml.as_bytes();
+    let mut out = String::with_capacity(yaml.len() + 16);
+    let mut last = 0;
+    let mut i = 0;
+    while i + 1 < b.len() {
+        if b[i] == b'[' && b[i + 1] == b']' {
+            let mut start = i;
+            while start > 0 && (b[start - 1].is_ascii_alphanumeric() || b[start - 1] == b'_' || b[start - 1] == b'-') {
+                start -= 1;
+            }
+            let mut before = start;
+            while before > 0 && b[before - 1] == b' ' {
+                before -= 1;
+            }
+            let mut after = i + 2;
+            while after < b.len() && b[after] == b' ' {
+                after += 1;
+            }
+            let colon_before = before > 0 && b[before - 1] == b':';
+            let closes = after < b.len() && (b[after] == b',' || b[after] == b'}');
+            if start < i && colon_before && closes {
+                out.push_str(&yaml[last..start]);
+                out.push('"');
+                out.push_str(&yaml[start..i + 2]);
+                out.push('"');
+                last = i + 2;
+            }
+            i += 2;
+        } else {
+            i += 1;
+        }
+    }
+    out.push_str(&yaml[last..]);
+    out
 }
 
 /// Extract `[[target]]`, `[[target|alias]]`, `[[target#h]]`, `![[embed]]`,
@@ -328,6 +372,15 @@ mod tests {
         let p = parse("notes/a.md", "---\n: : :\n  - [\n---\nbody [[x]]");
         assert!(p.frontmatter_error.is_some());
         assert_eq!(p.links.len(), 1);
+    }
+
+    #[test]
+    fn spec_style_list_types_in_flow_maps() {
+        let y = "inputs:\n  - { name: in, type: document[] }\nedges:\n  - { from: n1.out, to: n2.in, type: note_ref[] }\ntags: [a, b]\n";
+        let m = parse_frontmatter(y).unwrap();
+        assert_eq!(m["inputs"][0]["type"], "document[]");
+        assert_eq!(m["edges"][0]["type"], "note_ref[]");
+        assert_eq!(m["tags"][1], "b");
     }
 
     #[test]

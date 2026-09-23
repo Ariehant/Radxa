@@ -43,6 +43,7 @@ pub enum Job {
 pub type KindIndexer = fn(&Transaction, &IndexCtx) -> rusqlite::Result<()>;
 
 pub struct IndexCtx<'a> {
+    pub file_id: i64,
     pub rel: &'a str,
     pub node_id: &'a str,
     pub src: &'a str,
@@ -527,7 +528,7 @@ fn index_path(
         }
     }
 
-    let ctx = IndexCtx { rel, node_id: &node_id, src: &src, parsed: &parsed };
+    let ctx = IndexCtx { file_id, rel, node_id: &node_id, src: &src, parsed: &parsed };
     for (k, f) in kind_indexers {
         if *k == parsed.kind {
             f(tx, &ctx)?;

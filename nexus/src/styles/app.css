@@ -491,3 +491,298 @@ textarea {
 .cm-wikilink {
   text-decoration: underline dotted;
 }
+
+button.danger {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: transparent;
+}
+
+/* ---------- flow editor ---------- */
+.flow-editor {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.flow-name {
+  font-weight: 600;
+}
+.flow-errors {
+  color: var(--warn);
+  font-size: 12px;
+  cursor: help;
+}
+.flow-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.palette {
+  width: 200px;
+  border-right: 1px solid var(--border);
+  background: var(--bg-2);
+  overflow: auto;
+  padding-bottom: 8px;
+}
+.palette-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  width: calc(100% - 16px);
+  margin: 4px 8px;
+  text-align: left;
+  background: var(--bg);
+}
+.palette-title {
+  font-weight: 500;
+}
+.palette-ports {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.palette-ports i,
+.port-list i {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.palette-ports .arrow {
+  color: var(--fg-3);
+  font-size: 10px;
+}
+
+.flow-canvas {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  outline: none;
+  cursor: grab;
+  background-color: var(--bg);
+  background-image: radial-gradient(circle, var(--border) 1px, transparent 1px);
+  touch-action: none;
+  user-select: none;
+}
+.flow-canvas:active {
+  cursor: grabbing;
+}
+.flow-world {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+}
+.edge-layer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+.edge-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 14px;
+  pointer-events: stroke;
+  cursor: pointer;
+}
+.edge-line {
+  fill: none;
+  stroke-width: 2px;
+  pointer-events: none;
+}
+.edge.invalid .edge-line {
+  stroke-dasharray: 6 4;
+}
+.edge.selected .edge-line {
+  stroke-width: 3.5px;
+  filter: drop-shadow(0 0 3px var(--accent));
+}
+.edge-line.pending {
+  stroke: var(--accent);
+  stroke-dasharray: 5 4;
+}
+.edge-line.pending.bad {
+  stroke: var(--danger);
+}
+
+.node-card {
+  position: absolute;
+  left: 0;
+  top: 0;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  cursor: default;
+}
+.node-card.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-bg);
+}
+.node-card.missing {
+  border-color: var(--danger);
+}
+.node-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px 0 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-2);
+  border-radius: 8px 8px 0 0;
+  cursor: move;
+}
+.node-title {
+  flex: 1;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.entry-mark {
+  color: var(--ok);
+  font-size: 9px;
+  margin-right: 4px;
+}
+.node-kind {
+  font-size: 10px;
+  color: var(--fg-3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.port-row {
+  display: flex;
+  justify-content: space-between;
+}
+.port-cell {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+}
+.port-cell.right {
+  justify-content: flex-end;
+}
+.port {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--fg-2);
+  min-width: 0;
+}
+.port-in {
+  margin-left: -6px;
+}
+.port-out {
+  margin-right: -6px;
+}
+.port-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid;
+  background: var(--bg);
+  flex: none;
+  cursor: crosshair;
+}
+.port-in .port-dot {
+  cursor: default;
+}
+.port.ok .port-dot {
+  box-shadow: 0 0 0 4px rgba(48, 164, 108, 0.35);
+}
+.port.bad .port-dot {
+  box-shadow: 0 0 0 4px rgba(229, 72, 77, 0.35);
+}
+.port-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.port-type {
+  color: var(--fg-3);
+  font-family: var(--mono);
+  font-size: 10px;
+  margin-left: 4px;
+}
+.flow-zoom {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 2px;
+  font-size: 11px;
+  color: var(--fg-2);
+}
+.flow-empty,
+.flow-hint {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  color: var(--fg-3);
+}
+.flow-empty {
+  top: 45%;
+}
+.flow-hint {
+  bottom: 14px;
+  font-size: 12px;
+}
+
+.inspector {
+  width: 280px;
+  border-left: 1px solid var(--border);
+  background: var(--bg-2);
+  overflow: auto;
+  padding-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+}
+.inspector > button {
+  margin: 8px 12px;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 12px;
+}
+.field > span {
+  font-size: 11px;
+  color: var(--fg-3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.field textarea {
+  font-family: var(--mono);
+  font-size: 12px;
+  resize: vertical;
+}
+.field code {
+  font-family: var(--mono);
+  font-size: 12px;
+  word-break: break-all;
+}
+.field-error {
+  color: var(--danger);
+  font-size: 12px;
+}
+.port-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 12px;
+}

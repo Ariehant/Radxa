@@ -249,7 +249,8 @@ impl Vault {
 
 /// Kind-specific indexing hooks (flows, canvases, ...).
 fn kind_indexers() -> Vec<(crate::index::FileKind, crate::index::worker::KindIndexer)> {
-    Vec::new()
+    use crate::index::FileKind;
+    vec![(FileKind::Flow, crate::flow::index_flow), (FileKind::Canvas, crate::flow::index_canvas)]
 }
 
 /// Strip the Windows `\\?\` verbatim prefix that `canonicalize` adds, so
