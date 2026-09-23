@@ -1,0 +1,274 @@
+:root {
+  --bg: #ffffff;
+  --bg-2: #f6f7f9;
+  --bg-3: #eceef2;
+  --fg: #1d2130;
+  --fg-2: #5b6275;
+  --fg-3: #8a90a0;
+  --border: #e1e4ea;
+  --accent: #5b6cff;
+  --accent-bg: #eef0ff;
+  --danger: #e5484d;
+  --ok: #30a46c;
+  --warn: #f5a524;
+  --radius: 6px;
+  --font: "Inter", system-ui, sans-serif;
+  --mono: ui-monospace, "SF Mono", "Cascadia Code", "DejaVu Sans Mono", monospace;
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --bg: #16181f;
+  --bg-2: #1c1f28;
+  --bg-3: #252935;
+  --fg: #e6e8ee;
+  --fg-2: #a4aabb;
+  --fg-3: #737a8c;
+  --border: #2d3240;
+  --accent: #7c8cff;
+  --accent-bg: #262b4a;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font);
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font: inherit;
+  color: var(--fg);
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 5px 12px;
+  cursor: pointer;
+}
+button:hover {
+  background: var(--bg-3);
+}
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+button.ghost {
+  background: transparent;
+  border-color: transparent;
+  padding: 2px 6px;
+  color: var(--fg-2);
+}
+button.ghost:hover {
+  background: var(--bg-3);
+}
+button.active {
+  background: var(--accent-bg);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+input,
+select,
+textarea {
+  font: inherit;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 5px 8px;
+}
+
+.app {
+  height: 100%;
+}
+
+.welcome {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.welcome h1 {
+  font-size: 32px;
+  font-weight: 600;
+  margin: 0;
+}
+.welcome p {
+  color: var(--fg-2);
+}
+.welcome-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  height: 100%;
+}
+
+.sidebar {
+  border-right: 1px solid var(--border);
+  background: var(--bg-2);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 10px 6px 12px;
+  font-weight: 600;
+}
+.vault-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-tree {
+  flex: 1;
+  min-height: 0;
+}
+.tree-row {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  color: var(--fg-2);
+  border-radius: 4px;
+  margin: 0 4px;
+}
+.tree-row:hover {
+  background: var(--bg-3);
+}
+.tree-row.active {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+.tree-icon {
+  width: 12px;
+  text-align: center;
+  color: var(--fg-3);
+}
+.tree-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.main {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.empty {
+  margin: auto;
+  color: var(--fg-3);
+}
+
+.note-editor {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.note-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.note-path {
+  flex: 1;
+  color: var(--fg-2);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.note-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.source-editor {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+}
+.source-editor .cm-editor {
+  height: 100%;
+  font-family: var(--mono);
+  font-size: 13px;
+  background: var(--bg);
+  color: var(--fg);
+}
+.source-editor .cm-gutters {
+  background: var(--bg-2);
+  border-right: 1px solid var(--border);
+  color: var(--fg-3);
+}
+.source-editor .cm-editor.cm-focused {
+  outline: none;
+}
+
+.skeleton {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.skeleton-line {
+  height: 12px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--bg-3), var(--bg-2), var(--bg-3));
+  background-size: 200% 100%;
+  animation: shimmer 1.2s infinite linear;
+}
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.toast {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  max-width: 480px;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  z-index: 1000;
+  cursor: pointer;
+  white-space: pre-wrap;
+}
+.toast.error {
+  border-color: var(--danger);
+  color: var(--danger);
+}
