@@ -2,6 +2,7 @@
 
 use crate::error::{NexusError, Result};
 use crate::fs as vfs;
+use crate::index::Index;
 use crate::state::EventSink;
 use serde::Serialize;
 use std::path::{Path, PathBuf};
@@ -35,6 +36,7 @@ pub struct VaultInfo {
 pub struct Vault {
     pub root: PathBuf,
     pub events: Arc<dyn EventSink>,
+    pub index: Index,
 }
 
 impl Vault {
@@ -44,7 +46,8 @@ impl Vault {
         }
         let root = dunce(root.canonicalize()?);
         std::fs::create_dir_all(root.join(".nexus"))?;
-        Ok(Arc::new(Vault { root, events }))
+        let index = Index::open(&root, events.clone(), kind_indexers(), true)?;
+        Ok(Arc::new(Vault { root, events, index }))
     }
 
     /// Create the standard layout (idempotent) and open it.
@@ -103,15 +106,19 @@ impl Vault {
         Ok(out)
     }
 
-    pub fn read_text(&self, rel: &str) -> Result<String> {
-        let p = self.abs(rel)?;
-        if !p.is_file() {
-            return Err(NexusError::NotFound(rel.to_owned()));
-        }
-        vfs::read_text(&p)
+    /// Read through the hot tier of the index (validated by mtime + size).
+    pub fn read_text(&self, rel: &str) -> Result<Arc<String>> {
+        self.index.read_text(&vfs::normalize_rel(rel))
     }
 
-    pub fn shutdown(&self) {}
+    pub fn shutdown(&self) {
+        self.index.shutdown();
+    }
+}
+
+/// Kind-specific indexing hooks (flows, canvases, ...).
+fn kind_indexers() -> Vec<(crate::index::FileKind, crate::index::worker::KindIndexer)> {
+    Vec::new()
 }
 
 /// Strip the Windows `\\?\` verbatim prefix that `canonicalize` adds, so

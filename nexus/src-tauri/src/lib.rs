@@ -1,6 +1,7 @@
 pub mod commands;
 pub mod error;
 pub mod fs;
+pub mod index;
 pub mod rpc;
 pub mod scaffold;
 pub mod state;

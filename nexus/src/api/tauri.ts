@@ -2,7 +2,7 @@
 // every operation is a JSON-RPC 2.0 call through the single `rpc` command.
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type { NoteContent, TreeEntry, VaultInfo } from "./types";
+import type { IndexStatus, LinkRef, NoteContent, OutLink, Priority, SearchHit, TreeEntry, VaultInfo } from "./types";
 
 export * from "./types";
 
@@ -48,5 +48,17 @@ export const api = {
   },
   note: {
     read: (path: string) => call<NoteContent>("note.read", { path }),
+    backlinks: (path: string) => call<LinkRef[]>("note.backlinks", { path }),
+    outlinks: (path: string) => call<OutLink[]>("note.outlinks", { path }),
+  },
+  link: {
+    resolve: (targets: string[]) => call<(string | null)[]>("link.resolve", { targets }),
+    exists: (targets: string[]) => call<boolean[]>("link.exists", { targets }),
+  },
+  search: (query: string, limit = 50) => call<SearchHit[]>("search.query", { query, limit }),
+  index: {
+    status: () => call<IndexStatus>("index.status"),
+    rebuild: () => call<null>("index.rebuild"),
+    prioritize: (paths: string[], priority: Priority) => call<null>("index.prioritize", { paths, priority }),
   },
 };

@@ -1,6 +1,7 @@
 import { useStore } from "../../state/store";
 import { Skeleton } from "../../components/Skeleton";
 import { SourceEditor } from "./SourceEditor";
+import { BacklinksPanel } from "./BacklinksPanel";
 
 export function NoteEditor() {
   const doc = useStore((s) => s.doc);
@@ -15,6 +16,7 @@ export function NoteEditor() {
       </div>
       <div className="note-body">
         <SourceEditor docKey={doc.path} value={doc.content} />
+        <BacklinksPanel />
       </div>
     </div>
   );

@@ -8,6 +8,8 @@ pub enum NexusError {
     Io(#[from] std::io::Error),
     #[error("yaml: {0}")]
     Yaml(#[from] serde_yaml::Error),
+    #[error("sqlite: {0}")]
+    Sqlite(#[from] rusqlite::Error),
     #[error("json: {0}")]
     Json(#[from] serde_json::Error),
     #[error("no vault is open")]

@@ -1,5 +1,9 @@
+import { useEffect } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
+import { onEvent, type IndexUpdated } from "./api/tauri";
 import { useStore } from "./state/store";
+import { SearchBox } from "./components/SearchBox";
+import { StatusBar } from "./components/StatusBar";
 import { FileTree } from "./views/FileTree/FileTree";
 import { NoteEditor } from "./views/NoteEditor/NoteEditor";
 
@@ -43,6 +47,14 @@ export default function App() {
   const setError = useStore((s) => s.setError);
   const closeVault = useStore((s) => s.closeVault);
 
+  useEffect(() => {
+    const subs = [
+      onEvent<IndexUpdated>("index:updated", (e) => useStore.getState().onIndexUpdated(e)),
+      onEvent("index:ready", () => void useStore.getState().refreshIndexStatus()),
+    ];
+    return () => subs.forEach((p) => void p.then((un) => un()));
+  }, []);
+
   return (
     <div className="app">
       {error && (
@@ -63,7 +75,9 @@ export default function App() {
                 ✕
               </button>
             </div>
+            <SearchBox />
             <FileTree />
+            <StatusBar />
           </aside>
           <main className="main">
             <NoteEditor />
