@@ -16,6 +16,8 @@ pub enum NexusError {
     NoVault,
     #[error("not found: {0}")]
     NotFound(String),
+    #[error("conflict: {0} changed on disk")]
+    Conflict(String),
     #[error("invalid: {0}")]
     Invalid(String),
     #[error("{0}")]
@@ -33,6 +35,7 @@ impl NexusError {
             NexusError::Invalid(_) | NexusError::Yaml(_) | NexusError::Json(_) => -32602,
             NexusError::NotFound(_) => -32004,
             NexusError::NoVault => -32001,
+            NexusError::Conflict(_) => -32009,
             _ => -32000,
         }
     }

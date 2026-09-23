@@ -46,6 +46,7 @@ export default function App() {
   const error = useStore((s) => s.error);
   const setError = useStore((s) => s.setError);
   const closeVault = useStore((s) => s.closeVault);
+  const createNote = useStore((s) => s.createNote);
 
   useEffect(() => {
     const subs = [
@@ -71,9 +72,21 @@ export default function App() {
               <span className="vault-name" title={vault.root}>
                 {vault.name}
               </span>
-              <button className="ghost" onClick={closeVault} title="Close vault">
-                ✕
-              </button>
+              <span>
+                <button
+                  className="ghost"
+                  title="New note"
+                  onClick={() => {
+                    const title = window.prompt("New note title");
+                    if (title?.trim()) void createNote(title.trim());
+                  }}
+                >
+                  ＋
+                </button>
+                <button className="ghost" onClick={closeVault} title="Close vault">
+                  ✕
+                </button>
+              </span>
             </div>
             <SearchBox />
             <FileTree />

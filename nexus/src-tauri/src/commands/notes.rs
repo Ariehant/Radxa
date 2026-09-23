@@ -33,6 +33,35 @@ struct TargetsParams {
 struct NoteContent {
     path: String,
     content: String,
+    hash: String,
+}
+
+#[derive(Deserialize)]
+struct WriteParams {
+    path: String,
+    content: String,
+    /// Hash of the version the editor started from; refuse to clobber an external edit.
+    #[serde(default)]
+    base_hash: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct CreateParams {
+    #[serde(default = "default_dir")]
+    dir: String,
+    title: String,
+    #[serde(default)]
+    body: String,
+}
+
+fn default_dir() -> String {
+    "notes".into()
+}
+
+#[derive(Deserialize)]
+struct RenameParams {
+    from: String,
+    to: String,
 }
 
 pub fn register(r: &mut Router) {
@@ -41,8 +70,12 @@ pub fn register(r: &mut Router) {
         let path = crate::fs::normalize_rel(&p.path);
         let content = v.read_text(&path)?;
         v.index.touch(&path, Priority::Open);
-        Ok(NoteContent { path, content: (*content).clone() })
+        Ok(NoteContent { path, hash: crate::vault::content_hash(&content), content: (*content).clone() })
     });
+    r.add("note.write", |s, p: WriteParams| s.vault()?.write_text(&p.path, &p.content, p.base_hash.as_deref()));
+    r.add("note.create", |s, p: CreateParams| s.vault()?.create_note(&p.dir, &p.title, &p.body));
+    r.add("file.delete", |s, p: PathParams| s.vault()?.delete(&p.path));
+    r.add("file.rename", |s, p: RenameParams| s.vault()?.rename(&p.from, &p.to));
     r.add("note.backlinks", |s, p: PathParams| {
         let v = s.vault()?;
         let c = v.index.read()?;

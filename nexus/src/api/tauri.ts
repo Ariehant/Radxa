@@ -2,7 +2,7 @@
 // every operation is a JSON-RPC 2.0 call through the single `rpc` command.
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type { IndexStatus, LinkRef, NoteContent, OutLink, Priority, SearchHit, TreeEntry, VaultInfo } from "./types";
+import type { IndexStatus, LinkRef, NoteContent, OutLink, Priority, Saved, SearchHit, TreeEntry, VaultInfo } from "./types";
 
 export * from "./types";
 
@@ -41,19 +41,25 @@ export function onEvent<T>(name: string, cb: (payload: T) => void): Promise<Unli
 export const api = {
   vault: {
     open: (path: string) => call<VaultInfo>("vault.open", { path }),
-    create: (path: string) => call<VaultInfo>("vault.create", { path }),
+    create: (path: string, git = true) => call<VaultInfo>("vault.create", { path, git }),
     close: () => call<null>("vault.close"),
     info: () => call<VaultInfo | null>("vault.info"),
     tree: () => call<TreeEntry[]>("vault.tree"),
   },
   note: {
     read: (path: string) => call<NoteContent>("note.read", { path }),
+    write: (path: string, content: string, base_hash?: string) => call<Saved>("note.write", { path, content, base_hash }),
+    create: (title: string, body = "", dir = "notes") => call<Saved>("note.create", { title, body, dir }),
     backlinks: (path: string) => call<LinkRef[]>("note.backlinks", { path }),
     outlinks: (path: string) => call<OutLink[]>("note.outlinks", { path }),
   },
   link: {
     resolve: (targets: string[]) => call<(string | null)[]>("link.resolve", { targets }),
     exists: (targets: string[]) => call<boolean[]>("link.exists", { targets }),
+  },
+  file: {
+    delete: (path: string) => call<null>("file.delete", { path }),
+    rename: (from: string, to: string) => call<string>("file.rename", { from, to }),
   },
   search: (query: string, limit = 50) => call<SearchHit[]>("search.query", { query, limit }),
   index: {

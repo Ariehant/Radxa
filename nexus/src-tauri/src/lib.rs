@@ -1,10 +1,12 @@
 pub mod commands;
 pub mod error;
 pub mod fs;
+pub mod git;
 pub mod index;
 pub mod rpc;
 pub mod scaffold;
 pub mod state;
+pub mod time;
 pub mod vault;
 
 use state::{AppState, EventSink};

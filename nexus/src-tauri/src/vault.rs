@@ -2,6 +2,7 @@
 
 use crate::error::{NexusError, Result};
 use crate::fs as vfs;
+use crate::git::GitSync;
 use crate::index::Index;
 use crate::state::EventSink;
 use serde::Serialize;
@@ -33,10 +34,44 @@ pub struct VaultInfo {
     pub name: String,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct Saved {
+    pub path: String,
+    pub hash: String,
+}
+
 pub struct Vault {
     pub root: PathBuf,
     pub events: Arc<dyn EventSink>,
     pub index: Index,
+    pub git: Option<GitSync>,
+}
+
+pub fn content_hash(s: &str) -> String {
+    format!("{:016x}", xxhash_rust::xxh3::xxh3_64(s.as_bytes()))
+}
+
+/// `"Fix Auth Bug!"` → `"fix-auth-bug"`.
+pub fn slugify(title: &str) -> String {
+    let mut out = String::with_capacity(title.len());
+    let mut dash = false;
+    for c in title.trim().chars() {
+        if c.is_alphanumeric() {
+            out.extend(c.to_lowercase());
+            dash = false;
+        } else if !dash && !out.is_empty() {
+            out.push('-');
+            dash = true;
+        }
+    }
+    while out.ends_with('-') {
+        out.pop();
+    }
+    if out.is_empty() {
+        "untitled".into()
+    } else {
+        out
+    }
 }
 
 impl Vault {
@@ -47,17 +82,30 @@ impl Vault {
         let root = dunce(root.canonicalize()?);
         std::fs::create_dir_all(root.join(".nexus"))?;
         let index = Index::open(&root, events.clone(), kind_indexers(), true)?;
-        Ok(Arc::new(Vault { root, events, index }))
+        let git = GitSync::open(&root);
+        Ok(Arc::new(Vault { root, events, index, git }))
     }
 
-    /// Create the standard layout (idempotent) and open it.
-    pub fn create(root: &Path, events: Arc<dyn EventSink>) -> Result<Arc<Vault>> {
+    /// Create the standard layout (idempotent) and open it. Optionally
+    /// `git init` so every save is versioned.
+    pub fn create(root: &Path, events: Arc<dyn EventSink>, git: bool) -> Result<Arc<Vault>> {
         std::fs::create_dir_all(root)?;
         for d in VAULT_DIRS {
             std::fs::create_dir_all(root.join(d))?;
         }
         crate::scaffold::write_defaults(root)?;
-        Vault::open(root, events)
+        let fresh_repo = git && !crate::git::is_repo(root);
+        if fresh_repo {
+            crate::git::init(root)?;
+        }
+        let v = Vault::open(root, events)?;
+        if fresh_repo {
+            if let Some(g) = &v.git {
+                g.changed("");
+                g.flush()?;
+            }
+        }
+        Ok(v)
     }
 
     pub fn info(&self) -> VaultInfo {
@@ -111,8 +159,91 @@ impl Vault {
         self.index.read_text(&vfs::normalize_rel(rel))
     }
 
+    /// Atomic save → index (synchronously, < 200 ms) → git (coalesced).
+    /// If `base_hash` is given and the file on disk no longer matches it,
+    /// the save is refused so an external edit is never silently clobbered.
+    pub fn write_text(&self, rel: &str, content: &str, base_hash: Option<&str>) -> Result<Saved> {
+        let rel = vfs::normalize_rel(rel);
+        if rel.is_empty() || vfs::is_ignored_rel(&rel) {
+            return Err(NexusError::invalid(format!("cannot write {rel}")));
+        }
+        let abs = self.abs(&rel)?;
+        if let Some(base) = base_hash {
+            if abs.is_file() {
+                let current = vfs::read_text(&abs)?;
+                if content_hash(&current) != base {
+                    return Err(NexusError::Conflict(rel));
+                }
+            }
+        }
+        let content = vfs::normalize_newlines(content);
+        vfs::atomic_write(&abs, content.as_bytes())?;
+        self.after_change(&rel)?;
+        Ok(Saved { hash: content_hash(&content), path: rel })
+    }
+
+    /// Create a new note from a title, never overwriting: `notes/fix-auth-bug-2.md`.
+    pub fn create_note(&self, dir: &str, title: &str, body: &str) -> Result<Saved> {
+        let dir = vfs::normalize_rel(dir);
+        let base = slugify(title);
+        let mut n = 1;
+        let rel = loop {
+            let name = if n == 1 { format!("{base}.md") } else { format!("{base}-{n}.md") };
+            let rel = if dir.is_empty() { name } else { format!("{dir}/{name}") };
+            if !self.abs(&rel)?.exists() {
+                break rel;
+            }
+            n += 1;
+        };
+        let content = if body.starts_with("---\n") {
+            body.to_owned()
+        } else {
+            // A JSON string literal is a valid YAML double-quoted scalar.
+            let t = serde_json::to_string(title)?;
+            format!("---\ntitle: {t}\ncreated: {}\n---\n\n{body}", crate::time::now_rfc3339())
+        };
+        self.write_text(&rel, &content, None)
+    }
+
+    pub fn delete(&self, rel: &str) -> Result<()> {
+        let rel = vfs::normalize_rel(rel);
+        let abs = self.abs(&rel)?;
+        if abs.is_dir() {
+            std::fs::remove_dir_all(&abs)?;
+        } else {
+            vfs::remove_file(&abs)?;
+        }
+        self.after_change(&rel)
+    }
+
+    pub fn rename(&self, from: &str, to: &str) -> Result<String> {
+        let (from, to) = (vfs::normalize_rel(from), vfs::normalize_rel(to));
+        let (a, b) = (self.abs(&from)?, self.abs(&to)?);
+        if b.exists() && from.to_lowercase() != to.to_lowercase() {
+            return Err(NexusError::invalid(format!("{to} already exists")));
+        }
+        if let Some(p) = b.parent() {
+            std::fs::create_dir_all(p)?;
+        }
+        std::fs::rename(&a, &b)?;
+        self.after_change(&from)?;
+        self.after_change(&to)?;
+        Ok(to)
+    }
+
+    fn after_change(&self, rel: &str) -> Result<()> {
+        self.index.index_now(rel)?;
+        if let Some(g) = &self.git {
+            g.changed(rel);
+        }
+        Ok(())
+    }
+
     pub fn shutdown(&self) {
         self.index.shutdown();
+        if let Some(g) = &self.git {
+            g.shutdown();
+        }
     }
 }
 

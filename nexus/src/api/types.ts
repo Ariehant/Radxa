@@ -13,6 +13,12 @@ export interface TreeEntry {
 export interface NoteContent {
   path: string;
   content: string;
+  hash: string;
+}
+
+export interface Saved {
+  path: string;
+  hash: string;
 }
 
 export interface LinkRef {
