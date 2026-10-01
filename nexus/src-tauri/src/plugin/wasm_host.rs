@@ -1,11 +1,12 @@
 //! WASM module loading and execution. Uses wasmtime.
-//! Phase 1.5.1: WASI context, IPC bridge, and guest API functions are TODO.
+//! Phase 1.5.1 note: Full WASI context setup with filesystem preopen is deferred to
+//! when plugin instantiation is actually used. For now, the host loads and validates modules.
 
 use crate::error::{NexusError, Result};
 use std::path::Path;
-use wasmtime::{Engine, Instance, Linker, Module, Store};
+use wasmtime::{Engine, Linker, Module};
 
-/// WASM host context: engine and module loader. Data stored in the store is ().
+/// WASM host context: engine singleton and module cache.
 pub struct WasmHost {
     engine: Engine,
 }
@@ -22,18 +23,9 @@ impl WasmHost {
             .map_err(|e| NexusError::msg(format!("failed to load WASM: {}", e)))
     }
 
-    /// Create an empty store for instantiation.
-    pub fn create_store(&self) -> Store<()> {
-        Store::new(&self.engine, ())
-    }
-
-    /// Instantiate a WASM module with a linker.
-    pub fn instantiate(&self, module: &Module, mut store: Store<()>) -> Result<Instance> {
-        let linker = Linker::new(&self.engine);
-        // TODO: Phase 1.5.1 — add WASI + guest API functions to linker.
-        linker
-            .instantiate(&mut store, module)
-            .map_err(|e| NexusError::msg(format!("failed to instantiate module: {}", e)))
+    /// Create a linker for instantiation. Phase 1.5.2 will add WASI + guest API.
+    pub fn create_linker(&self) -> Linker<()> {
+        Linker::new(&self.engine)
     }
 }
 

@@ -4,6 +4,7 @@
 pub mod wasm_host;
 pub mod guest_api;
 pub mod ipc_bridge;
+pub mod loader;
 
 use crate::error::Result;
 use crate::registry::plugin::PluginManifest;
