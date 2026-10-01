@@ -7,7 +7,8 @@ disposable index. Running a flow produces knowledge: agent and write-note
 nodes create `.md` files that immediately appear in backlinks and search,
 and every run is logged to `runs/<flow>/<timestamp>.md`.
 
-This directory implements **Phase 1** of the build spec (milestones 1–8).
+**Phase 1** (milestones 1–8): Complete and tested.
+**Phase 1.5** (plugin system): Infrastructure in place—WASM host, plugin loader, guest API, IPC bridge.
 
 ## Quick start
 
@@ -37,7 +38,8 @@ For agent nodes, run [Ollama](https://ollama.com) locally (`ollama serve`,
 
 | Command | What |
 |---|---|
-| `cargo test --manifest-path src-tauri/Cargo.toml --lib` | 56 Rust unit/integration tests (index, parser, flows, engine, agent loop, fake-Ollama wire test, git, RPC) |
+| `cargo test --manifest-path src-tauri/Cargo.toml --lib` | 62 Rust unit/integration tests (index, parser, flows, engine, agent loop, fake-Ollama wire test, git, RPC, plugin loader) |
+| `cargo test --manifest-path src-tauri/Cargo.toml --test plugin_integration` | 2 integration tests (plugin discovery and validation in vaults) |
 | `cargo test --release --manifest-path src-tauri/Cargo.toml --lib perf_ -- --ignored --nocapture` | 10k-file perf checks (spec §9) |
 | `npm test` | Vitest: frontmatter + TipTap wikilink roundtrip |
 | `npm run e2e` | Real Rust backend (`examples/dev_bridge.rs`) + real UI in headless Chromium, milestones 1–7 |
