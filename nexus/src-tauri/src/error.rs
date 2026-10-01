@@ -29,6 +29,10 @@ impl NexusError {
         NexusError::Invalid(msg.into())
     }
 
+    pub fn msg(msg: impl Into<String>) -> Self {
+        NexusError::Other(msg.into())
+    }
+
     /// JSON-RPC 2.0 error code. -32000..-32099 is reserved for implementation errors.
     pub fn code(&self) -> i64 {
         match self {
