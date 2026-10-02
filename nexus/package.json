@@ -1,0 +1,50 @@
+{
+  "name": "nexus",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "test": "vitest run",
+    "e2e": "cargo build --manifest-path src-tauri/Cargo.toml --example dev_bridge && node e2e/smoke.mjs",
+    "e2e:prod": "cargo build --release --manifest-path src-tauri/Cargo.toml --example dev_bridge && vite build && NEXUS_E2E_PROD=1 node e2e/smoke.mjs"
+  },
+  "dependencies": {
+    "@codemirror/lang-markdown": "^6.3.0",
+    "@codemirror/language": "^6.10.0",
+    "@codemirror/state": "^6.4.0",
+    "@codemirror/view": "^6.34.0",
+    "@fontsource/inter": "^5.1.0",
+    "@lezer/highlight": "^1.2.3",
+    "@tauri-apps/api": "^2.1.0",
+    "@tauri-apps/plugin-dialog": "^2.0.0",
+    "@tiptap/core": "^2.27.3",
+    "@tiptap/extension-link": "^2.27.3",
+    "@tiptap/extension-task-item": "^2.27.3",
+    "@tiptap/extension-task-list": "^2.27.3",
+    "@tiptap/pm": "^2.27.3",
+    "@tiptap/react": "^2.27.3",
+    "@tiptap/starter-kit": "^2.27.3",
+    "codemirror": "^6.0.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tiptap-markdown": "^0.8.10",
+    "zustand": "^4.5.5"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.1.0",
+    "@types/markdown-it": "^14.2.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.3",
+    "jsdom": "^25.0.1",
+    "playwright-core": "^1.56.1",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11",
+    "vitest": "^2.1.9"
+  }
+}
