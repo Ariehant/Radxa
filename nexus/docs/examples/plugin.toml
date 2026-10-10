@@ -1,0 +1,43 @@
+# Example plugin manifest (spec §10.3). Validated by
+# src-tauri/src/registry/plugin.rs; see docs/PLUGIN_API.md.
+
+[plugin]
+id = "com.nexus.github"
+name = "GitHub Integration"
+version = "1.0.0"
+author = "Nexus"
+description = "Issues, PRs and Actions as notes and flow nodes."
+min_nexus_version = "0.2.0"
+
+[entry]
+wasm = "plugin.wasm"
+ui = "ui.js"
+
+[connection]
+type = "http"
+endpoint = "https://api.github.com"
+
+[auth]
+method = "oauth2"
+scopes = ["repo", "issues"]
+
+[permissions]
+fs_read = ["vault/**/*.md"]
+fs_write = ["vault/runs/**"]
+network = ["api.github.com"]
+llm_call = true
+git = true
+max_memory_mb = 128
+max_cpu_ms = 5000
+
+[socket]
+path = "/tmp/nexus-github.sock"
+pipe = "\\\\.\\pipe\\nexus-github"
+
+[capabilities]
+read = ["issues", "prs", "repos"]
+write = ["issues.comment", "prs.review"]
+events = ["webhook.push", "webhook.pr"]
+
+[contributes.nodes]
+github_issues = "node_github_issues"
